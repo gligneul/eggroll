@@ -1,68 +1,80 @@
-# EggRoll
+# EggRoll 🥢
 
-A high-level, opinionated, map-reduce-based framework for Cartesi Rollups in Go
+A high-level, opinionated, lambda-based framework for Cartesi Rollups in Go
+
+## Requirements
+
+EggRoll is built on top of the [Cartesi Rollups](https://docs.cartesi.io/cartesi-rollups/) infrastructure version 1.0.
+To use EggRoll, you also need [sunodo](https://github.com/sunodo/sunodo/) version 0.8.
 
 ## Quick Look
 
-Let's look at a simple example: a DApp that receives and accumulates inputs.
+Let's look at a simple example: a DApp that keeps a text box in the blockchain.
 
 In EggRoll, you should first define the types shared between the front and back end.
-These types are the input that advances the rollups and the backend state.
+These types are the inputs that advance the rollups and the backend state.
 
 ```go
-type Input struct {
+// Append a value to the text box
+type Append struct {
 	Value string
 }
 
+// Clear the text box
+type Clear struct {
+}
+
+// Text box shared state
 type State struct {
-	Accumulator string
+	TextBox string
 }
 ```
 
-Then, you should define the reduce function that will run in the DApp backend.
-This function receives the current state and the next input that should be processed.
-The `eggroll.Roll` function will process the rollups and call the reduce function for each input.
+Then, you should use the `eggroll.DApp` interface to build the DApp backend.
+`Handle` registers a function for each input struct type.
+Each handler receives the the mutable state and the respective input struct.
+After registering all functions, call `Roll` to start the DApp backend.
 
 ```go
-func reduce(e eggroll.Environment, s *acc.State, i *acc.Input) error {
-	s.Accumulator += i.Value
-	return nil
-}
+dapp := eggroll.SetupDApp[State]()
 
-func main() {
-	eggroll.Roll(reduce)
-}
+eggroll.Register(dapp, func(_ eggroll.Env, state *State, _ *Clear) error {
+    state.TextBox = ""
+    return nil
+})
+
+eggroll.Register(dapp, func(_ eggroll.Env, state *State, input *Append) error {
+    state.TextBox += input.Value
+    return nil
+})
+
+log.Panic(dapp.Roll())
 ```
 
 Finally, you can interact with the DApp from the front end using the `eggroll.Client` interface.
-The `c.Send` call sends an input to the DApp backend through the blockchain.
-The `c.WaitFor` call waits for the input to be processed by the DApp backend.
-The `c.Read` call reads the state from the backend.
+`Send` sends inputs to the DApp backend through the blockchain in a single transaction.
+`WaitFor` waits for the given input to be processed by the DApp backend.
+`State` reads the DApp backend state from the Cartesi reader node.
 
 ```go
-c := setupClient()
-idx, err := c.Send(&acc.Input{Value: "hello"})
+client := eggroll.SetupClient[State]()
+
+indices, err := client.Send(
+    &Clear{},
+    &Append{Value: "egg"},
+    &Append{Value: "roll"},
+)
 if err != nil {
     log.Panic(err)
 }
 
-idx, err = c.Send(&acc.Input{Value: ", world"})
-if err != nil {
+lastInput := indices[len(indices)-1]
+if err := client.WaitFor(lastInput); err != nil {
     log.Panic(err)
 }
 
-if err := c.WaitFor(idx); err != nil {
-    log.Panic(err)
-}
-
-var state acc.State
-if err := c.Read(&state); err != nil {
-    log.Panic(err)
-}
-
-fmt.Println(state.Accumulator) // -> hello, world
+state := client.State()
+fmt.Println(state.TextBox) // -> eggroll
 ```
 
-## Requiriments
-
-To use EggRoll, you need [sunodo](https://github.com/sunodo/sunodo/) version 0.8.
+To run this example, check the README in `./examples/textbox`.
