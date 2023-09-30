@@ -31,24 +31,26 @@ type State struct {
 ```
 
 Then, you should use the `eggroll.DApp` interface to build the DApp backend.
-`Handle` registers a function for each input struct type.
+`Register` registers a function for each input struct type.
 Each handler receives the the mutable state and the respective input struct.
 After registering all functions, call `Roll` to start the DApp backend.
 
 ```go
 dapp := eggroll.SetupDApp[State]()
 
-eggroll.Register(dapp, func(_ eggroll.Env, state *State, _ *Clear) error {
+eggroll.Register(dapp, func(env eggroll.Env, state *State, _ *Clear) error {
+    env.Report("received clear request")
     state.TextBox = ""
     return nil
 })
 
-eggroll.Register(dapp, func(_ eggroll.Env, state *State, input *Append) error {
+eggroll.Register(dapp, func(env eggroll.Env, state *State, input *Append) error {
+    env.Report("received append request with '%v'", input.Value)
     state.TextBox += input.Value
     return nil
 })
 
-log.Panic(dapp.Roll())
+dapp.Roll()
 ```
 
 Finally, you can interact with the DApp from the front end using the `eggroll.Client` interface.

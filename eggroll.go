@@ -1,78 +1,81 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-// Framework for Cartesi Rollups in Go
+// A high-level, opinionated, lambda-based framework for Cartesi Rollups in Go
 package eggroll
 
 import (
+	"reflect"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// Advance the rollups state inside the Cartesi Machine.
-// The DApp developer should implement this interface.
-type DAppBackend interface {
+// Ethereum type
+type (
+	Address common.Address
+	Hash    common.Hash
+)
 
-	// Process an advance state request.
-	// Receives the rollups state and the input.
-	// If returns an error, the input is rejected.
-	Advance(s State) error
+// Metadata from the input
+type Metadata struct {
+	Sender         Address
+	BlockNumber    int64
+	BlockTimestamp int64
 }
 
-// Use the Rollups Node to read the DApp state from the outside.
-// The eggroll framework provides an implementation for this interface.
-type Inspector interface {
+// Interface to interact with the rollups environment
+type Env interface {
 
-	// Get a value from the DApp state.
-	// Returns an error if the value is not found.
-	Get(key string, value any) error
+	// Get the Metadata for the current input
+	Metadata() *Metadata
 
-	// Check whether a key is in the DApp state
-	Has(key string) bool
-
-	// Get the log report from the DApp
-	Log() string
-}
-
-// Send an input to the DApp from the outside.
-// The eggroll framework provides an implementation for this interface.
-type InputSender interface {
-
-	// Sends an input to the DApp
-	Send(payload any) error
-}
-
-// Manipulate the state of the DApp
-type State interface {
-
-	// Get the input for the current advance
-	Input(value any)
-
-	// Get the Metadata for the current advance
-	Metadata() Metadata
-
-	// Check whether a key is in the DApp state
-	Has(key string) bool
-
-	// Get a value from the DApp state
-	Get(key string, value any)
-
-	// Set a value in the DApp state.
-	// Once the DApp finishes an advance step, the value is available to the Inspector.
-	Set(key string, value any)
-
-	// Delete the key from the DApp state
-	Delete(key string)
-
-	// Send a report for debugging purposes
+	// Send a report for debugging purposes.
+	// The reports will be available as logs for the front end client.
 	Report(format string, a ...any)
 
 	// Send a voucher
 	Voucher(destination Address, payload []byte)
 }
 
-// Input to advance the DApp state
-type Metadata struct {
+// Signature of the handler that advances the rollups state
+type Handler[S, I any] func(Env, *S, *I) error
+
+// Register a handler to a DApp
+func Register[S, I any](dapp DApp[S], handler Handler[S, I]) {
+	// This function needs to be defined outside of the register interface
+	// because Go doesn't template parameters in methods.
+	// It is not possible to have DApp[S].Register[I](Handler[S, I]).
+	inputType := reflect.TypeOf((*I)(nil))
+	dapp.register(inputType, func(env Env, state *S, input any) error {
+		concreteInput := input.(*I)
+		return handler(env, state, concreteInput)
+	})
 }
 
-// Ethereum address
-type Address common.Address
+// Interface to manage the handlers and run the DApp back end
+type DApp[S any] interface {
+
+	// Register a handler for the given input type
+	register(inputType reflect.Type, handler internalHandler[S])
+
+	// Start the DApp backend.
+	// This function only returns if there is an error.
+	Roll()
+}
+
+// Interface to interact with the DApp from the front end
+type Client interface {
+
+	// Send inputs to the DApp backend.
+	// Returns an slice with each input index.
+	Send(input ...any) ([]int, error)
+
+	// Wait until the DApp backend processes a given input
+	WaitFor(inputIndex int) error
+
+	// Read the DApp state
+	Read(state any) error
+
+	// Get the reports in form of a log
+	Log() (string, error)
+}
