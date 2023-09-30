@@ -3,6 +3,7 @@
 
 package eggroll
 
+// Status when finishing a rollups request.
 type finishStatus int
 
 const (
@@ -20,16 +21,16 @@ func (status finishStatus) String() string {
 	panic("invalid status")
 }
 
-// Interface with the Rollups backend API
+// Interface with the Rollups backend API.
 type rollupsApi interface {
 
-	// Send a voucher to the Rollups API
+	// Send a voucher to the Rollups API.
 	sendVoucher(destination Address, payload []byte) error
 
-	// Send a notice to the Rollups API
+	// Send a notice to the Rollups API.
 	sendNotice(payload []byte) error
 
-	// Send a report to the Rollups API
+	// Send a report to the Rollups API.
 	sendReport(payload []byte) error
 
 	// Send a finish request to the Rollups API.

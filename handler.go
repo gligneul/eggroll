@@ -13,8 +13,24 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// Internal handler that doesn't require the input type
-type internalHandler[S any] func(Env, *S, any) error
+// Signature of the handler that advances the rollups state.
+type Handler[S, I any] func(*Env, *S, *I) error
+
+// Register a handler for a custom input to a DApp.
+func Register[S, I any](d *DApp[S], handler Handler[S, I]) {
+	// This function needs to be defined outside of the DApp interface
+	// because Go doesn't support template parameters in methods.
+	// So, it is not possible to write DApp[S].Register[I](Handler[S, I]).
+	inputType := reflect.TypeOf((*I)(nil))
+	gHandler := func(env *Env, state *S, input any) error {
+		concreteInput := input.(*I)
+		return handler(env, state, concreteInput)
+	}
+	d.handlers.register(inputType, gHandler)
+}
+
+// Internal handler that doesn't require the input type.
+type genericHandler[S any] func(*Env, *S, any) error
 
 // Use the first 4 bytes of the keccak of the Input type as the handler key.
 // We do this to be compatible with inputs that are ABI encoded.
@@ -23,19 +39,19 @@ type handlerKey [4]byte
 
 type handlerEntry[S any] struct {
 	inputType reflect.Type
-	handler   internalHandler[S]
+	handler   genericHandler[S]
 }
 
 type handlerMap[S any] map[handlerKey]handlerEntry[S]
 
-// Register the handler for the given input
-func (m handlerMap[S]) register(inputType reflect.Type, handler internalHandler[S]) {
+// Register the handler for the given input.
+func (m handlerMap[S]) register(inputType reflect.Type, handler genericHandler[S]) {
 	key := computeHandlerKey(inputType)
 	m[key] = handlerEntry[S]{inputType, handler}
 }
 
-// Call the handler for the given input
-func (m handlerMap[S]) dispatch(env Env, state *S, payload []byte) error {
+// Call the handler for the given input.
+func (m handlerMap[S]) dispatch(env *Env, state *S, payload []byte) error {
 	if len(payload) < 4 {
 		return fmt.Errorf("invalid payload len (%v bytes)", len(payload))
 	}
@@ -61,7 +77,7 @@ func (m handlerMap[S]) dispatch(env Env, state *S, payload []byte) error {
 	return nil
 }
 
-// Get the input type key
+// Get the input type key.
 func computeHandlerKey(inputType reflect.Type) handlerKey {
 	// Check if inputType is pointer to struct
 	if inputType.Kind() != reflect.Ptr {

@@ -13,12 +13,12 @@ import (
 	"net/http"
 )
 
-// Implement the Rollups API using the Rollups HTTP server
+// Implement the Rollups API using the Rollups HTTP server.
 type rollupsHttpApi struct {
 	endpoint string
 }
 
-// Send a post request and return the http response
+// Send a post request and return the http response.
 func (r *rollupsHttpApi) sendPost(route string, data []byte) (*http.Response, error) {
 	endpoint := r.endpoint + "/" + route
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(data))
@@ -183,7 +183,7 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 	return payload, metadata, nil
 }
 
-// Check the whether the status code is Ok, if not return an error
+// Check the whether the status code is Ok, if not return an error.
 func checkStatusOk(resp *http.Response) error {
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
@@ -196,12 +196,12 @@ func checkStatusOk(resp *http.Response) error {
 	return nil
 }
 
-// Encode bytes to hex string
+// Encode bytes to hex string.
 func encodeHex(payload []byte) string {
 	return "0x" + hex.EncodeToString(payload)
 }
 
-// Decode hex string to bytes
+// Decode hex string to bytes.
 func decodeHex(payload string) ([]byte, error) {
 	if len(payload) < 2 {
 		return nil, fmt.Errorf("invalid hex string '%v'", payload)
