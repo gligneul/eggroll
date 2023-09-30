@@ -42,9 +42,9 @@ type Handler[S, I any] func(Env, *S, *I) error
 
 // Register a handler to a DApp
 func Register[S, I any](dapp DApp[S], handler Handler[S, I]) {
-	// This function needs to be defined outside of the register interface
+	// This function needs to be defined outside of the DApp interface
 	// because Go doesn't template parameters in methods.
-	// It is not possible to have DApp[S].Register[I](Handler[S, I]).
+	// It is not possible to write DApp[S].Register[I](Handler[S, I]).
 	inputType := reflect.TypeOf((*I)(nil))
 	dapp.register(inputType, func(env Env, state *S, input any) error {
 		concreteInput := input.(*I)
@@ -61,6 +61,23 @@ type DApp[S any] interface {
 	// Start the DApp backend.
 	// This function only returns if there is an error.
 	Roll()
+}
+
+// Set up the DApp backend loading the config from environment variables
+func SetupDApp[S any]() DApp[S] {
+	var config DAppConfig
+	config.Load()
+	return SetupDAppWithConfig[S](config)
+}
+
+// Set up the DApp with a custom config
+func SetupDAppWithConfig[S any](config DAppConfig) DApp[S] {
+	rollups := &rollupsHttpApi{config.RollupsEndpoint}
+	dapp := dapp[S]{
+		rollups:  rollups,
+		handlers: make(handlerMap[S]),
+	}
+	return &dapp
 }
 
 // Interface to interact with the DApp from the front end

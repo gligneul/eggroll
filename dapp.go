@@ -6,43 +6,16 @@ package eggroll
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"reflect"
 )
-
-const defaultRollupsEndpoint string = "http://localhost:8080/host-runner"
-
-// Set up the DApp backend.
-//
-// Load the Rollups HTTP server endpoint from the ROLLUP_HTTP_SERVER_URL variable.
-func SetupDApp[S any]() DApp[S] {
-	endpoint := os.Getenv("ROLLUP_HTTP_SERVER_URL")
-	if endpoint == "" {
-		endpoint = defaultRollupsEndpoint
-	}
-
-	log.Printf("setting rollups http endpoint to %v", endpoint)
-
-	rollups := &rollupsHttpApi{endpoint}
-	dapp := dapp[S]{
-		rollups:  rollups,
-		handlers: make(handlerMap[S]),
-	}
-
-	return &dapp
-}
 
 type dapp[S any] struct {
 	rollups  rollupsApi
 	handlers handlerMap[S]
 }
 
-// dapp[S] implements the DApp[S] interface
-var _ DApp[struct{}] = (*dapp[struct{}])(nil)
-
 func (d *dapp[S]) register(inputType reflect.Type, handler internalHandler[S]) {
-	key := computeHandlerKey(inputType)
-	d.handlers[key] = handlerEntry[S]{inputType, handler}
+	d.handlers.register(inputType, handler)
 }
 
 func (d *dapp[S]) Roll() {
@@ -58,31 +31,8 @@ func (d *dapp[S]) Roll() {
 
 		env.metadata = metadata
 
-		if len(payload) < 4 {
-			env.Report("invalid payload len")
-			status = statusReject
-			continue
-		}
-
-		key := handlerKey(payload[:4])
-		entry, ok := d.handlers[key]
-		if !ok {
-			env.Report("handler not found")
-			status = statusReject
-			continue
-		}
-
-		input := reflect.New(entry.inputType.Elem())
-		inputPointer := input.Interface()
-		if err = json.Unmarshal(payload[4:], inputPointer); err != nil {
-			env.Report("failed to decode input: %v", err)
-			status = statusReject
-			continue
-		}
-
-		err = entry.handler(&env, &state, inputPointer)
-		if err != nil {
-			env.Report("rejecting: %v", err)
+		if err = d.handlers.dispatch(&env, &state, payload); err != nil {
+			env.Report(err.Error())
 			status = statusReject
 			continue
 		}
