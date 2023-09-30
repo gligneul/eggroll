@@ -27,3 +27,11 @@ func (c *DAppConfig) Load() {
 	}
 	log.Printf("set %v=%v\n", varName, c.RollupsEndpoint)
 }
+
+// Configuration for the Client
+type ClientConfig struct {
+}
+
+// Load the config from environment variables
+func (c *ClientConfig) Load() {
+}
