@@ -39,8 +39,8 @@ func (r *rollupsHttpApi) sendVoucher(destination Address, payload []byte) error 
 		Destination string `json:"destination"`
 		Payload     string `json:"payload"`
 	}{
-		Destination: encodeHex(destination[:]),
-		Payload:     encodeHex(payload),
+		Destination: EncodeHex(destination[:]),
+		Payload:     EncodeHex(payload),
 	}
 
 	body, err := json.Marshal(request)
@@ -65,7 +65,7 @@ func (r *rollupsHttpApi) sendNotice(payload []byte) error {
 	request := struct {
 		Payload string `json:"payload"`
 	}{
-		Payload: encodeHex(payload),
+		Payload: EncodeHex(payload),
 	}
 
 	body, err := json.Marshal(request)
@@ -90,7 +90,7 @@ func (r *rollupsHttpApi) sendReport(payload []byte) error {
 	request := struct {
 		Payload string `json:"payload"`
 	}{
-		Payload: encodeHex(payload),
+		Payload: EncodeHex(payload),
 	}
 
 	body, err := json.Marshal(request)
@@ -165,12 +165,12 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 		return nil, nil, fmt.Errorf("failed to decode advance request: %v", err)
 	}
 
-	payload, err := decodeHex(advanceRequest.Payload)
+	payload, err := DecodeHex(advanceRequest.Payload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode advance payload: %v", err)
 	}
 
-	sender, err := decodeHex(advanceRequest.Metadata.MsgSender)
+	sender, err := DecodeHex(advanceRequest.Metadata.MsgSender)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode advance metadata sender: %v", err)
 	}

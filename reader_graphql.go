@@ -66,7 +66,7 @@ func (r *GraphqlReader) Notice(ctx context.Context, inputIndex int, noticeIndex 
 		return nil, err
 	}
 
-	payload, err := decodeHex(resp.Notice.Payload)
+	payload, err := DecodeHex(resp.Notice.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode notice payload: %v", err)
 	}

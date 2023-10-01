@@ -4,7 +4,9 @@
 package eggroll
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"runtime"
 )
@@ -82,4 +84,51 @@ func (d *DApp[S]) Roll() {
 		}
 		status = statusAccept
 	}
+}
+
+// Signature of the handler that advances the rollups state.
+type Handler[S, I any] func(*Env, *S, *I) error
+
+// Register a handler for a custom input to a DApp.
+func Register[S, I any](d *DApp[S], handler Handler[S, I]) {
+	// This function needs to be defined outside of the DApp interface
+	// because Go doesn't support template parameters in methods.
+	// So, it is not possible to write DApp[S].Register[I](Handler[S, I]).
+
+	key, decoder := getInputKeyDecoder[I]()
+
+	gHandler := func(env *Env, state *S, inputBytes []byte) error {
+		input, err := decoder(inputBytes)
+		if err != nil {
+			return err
+		}
+		return handler(env, state, input)
+	}
+
+	d.handlers[key] = gHandler
+}
+
+// Internal handler that receives an encoded input.
+type genericHandler[S any] func(*Env, *S, []byte) error
+
+// Map a input key to its handler.
+type handlerMap[S any] map[inputKey]genericHandler[S]
+
+// Call the handler for the given input.
+func (m handlerMap[S]) dispatch(env *Env, state *S, payload []byte) error {
+	inputKey, inputBytes, err := splitInput(payload)
+	if err != nil {
+		return err
+	}
+
+	handler, ok := m[inputKey]
+	if !ok {
+		return fmt.Errorf("handler not found (%v)", hex.EncodeToString(inputKey[:]))
+	}
+
+	if err := handler(env, state, inputBytes); err != nil {
+		return fmt.Errorf("input rejected: %v", err)
+	}
+
+	return nil
 }

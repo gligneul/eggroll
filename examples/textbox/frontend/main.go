@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/gligneul/eggroll"
@@ -19,24 +18,24 @@ type (
 	State       textbox.State
 )
 
+func printInput(input any) {
+	bytes, err := eggroll.EncodeInput(input)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println(eggroll.EncodeHex(bytes))
+}
+
 func main() {
 	var err error
 	ctx := context.Background()
 	client := eggroll.NewClient[State]()
 
-	// indices, err := client.Send(
-	// 	&InputClear{},
-	// 	&InputAppend{Value: "egg"},
-	// 	&InputAppend{Value: "roll"},
-	// )
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-	//
-	// lastInput := indices[len(indices)-1]
+	printInput(&InputClear{})
+	printInput(&InputAppend{Value: "egg"})
+	printInput(&InputAppend{Value: "roll"})
 
-	lastInput := 2
-	if err = client.WaitFor(ctx, lastInput); err != nil {
+	if err = client.WaitFor(ctx, 2); err != nil {
 		log.Fatal(err)
 	}
 
@@ -44,5 +43,5 @@ func main() {
 	if state, err = client.State(ctx); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(state.TextBox) // -> eggroll
+	log.Println(state.TextBox) // -> eggroll
 }

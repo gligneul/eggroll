@@ -9,12 +9,12 @@ import (
 )
 
 // Encode bytes to hex string.
-func encodeHex(payload []byte) string {
+func EncodeHex(payload []byte) string {
 	return "0x" + hex.EncodeToString(payload)
 }
 
 // Decode hex string to bytes.
-func decodeHex(payload string) ([]byte, error) {
+func DecodeHex(payload string) ([]byte, error) {
 	if len(payload) < 2 {
 		return nil, fmt.Errorf("invalid hex string '%v'", payload)
 	}

@@ -13,17 +13,20 @@ import (
 
 // Configuration for the Client.
 type ClientConfig struct {
-	GraphqlEndpoint string
+	GraphqlEndpoint  string
+	ProviderEndpoint string
 }
 
 // Load the config from environment variables.
 func (c *ClientConfig) Load() {
 	c.GraphqlEndpoint = loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
+	c.ProviderEndpoint = loadVar("ETH_ENDPOINT", "http://localhost:8545")
 }
 
 // The Client interacts with the DApp from the outside.
 type Client[S any] struct {
 	Reader    Reader
+	client    blockchainClient
 	state     S
 	nextInput int
 }
@@ -38,16 +41,19 @@ func NewClient[S any]() *Client[S] {
 // Create the Client with a custom config.
 func NewClientFromConfig[S any](config ClientConfig) *Client[S] {
 	reader := NewGraphqlReader(config.GraphqlEndpoint)
+	client := newEthClient(config.ProviderEndpoint)
 	return &Client[S]{
 		Reader:    reader,
+		client:    client,
 		nextInput: 0,
 	}
 }
 
 // Send inputs to the DApp back end.
 // Returns an slice with each input index.
-func (c *Client[S]) Send(input ...any) ([]int, error) {
-	return nil, nil
+func (c *Client[S]) Send(ctx context.Context, input ...any) error {
+	c.client.Send(ctx)
+	return nil
 }
 
 // Wait until the DApp back end processes a given input.
