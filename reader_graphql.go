@@ -14,30 +14,27 @@ import (
 
 // RollupsReader implementation that connects to the Rollups Node GraphQL API.
 type GraphqlReader struct {
-	ctx    context.Context
 	client graphql.Client
 }
 
-func NewGraphqlReader(ctx context.Context, endpoint string) *GraphqlReader {
+func NewGraphqlReader(endpoint string) *GraphqlReader {
 	client := graphql.NewClient(endpoint, http.DefaultClient)
 	return &GraphqlReader{
-		ctx:    ctx,
 		client: client,
 	}
 }
 
-func (r *GraphqlReader) Input(index int) (*Input, error) {
+func (r *GraphqlReader) Input(ctx context.Context, index int) (*Input, error) {
 	_ = `# @genqlient
 	  query getInput($inputIndex: Int!) {
 	    input(index: $inputIndex) {
-	      index
 	      status
 	      blockNumber
 	    }
 	  }
 	`
 
-	resp, err := getInput(r.ctx, r.client, index)
+	resp, err := getInput(ctx, r.client, index)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +45,39 @@ func (r *GraphqlReader) Input(index int) (*Input, error) {
 	}
 
 	input := &Input{
-		Index:       resp.Input.Index,
+		Index:       index,
 		Status:      resp.Input.Status,
 		BlockNumber: blockNumber,
 	}
 	return input, nil
 }
+
+func (r *GraphqlReader) Notice(ctx context.Context, inputIndex int, noticeIndex int) (*Notice, error) {
+	_ = `# @genqlient
+	  query getNotice($inputIndex: Int!, $noticeIndex: Int!) {
+	    notice(noticeIndex: $noticeIndex, inputIndex: $inputIndex) {
+	      payload
+	    }
+	  }
+	`
+
+	resp, err := getNotice(ctx, r.client, inputIndex, noticeIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := decodeHex(resp.Notice.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode notice payload: %v", err)
+	}
+
+	notice := &Notice{
+		InputIndex:  inputIndex,
+		NoticeIndex: noticeIndex,
+		Payload:     payload,
+	}
+
+	return notice, nil
+}
+
+//go:generate go run github.com/Khan/genqlient

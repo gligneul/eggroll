@@ -29,21 +29,28 @@ type __getInputInput struct {
 // GetInputIndex returns __getInputInput.InputIndex, and is useful for accessing the field via an interface.
 func (v *__getInputInput) GetInputIndex() int { return v.InputIndex }
 
+// __getNoticeInput is used internally by genqlient
+type __getNoticeInput struct {
+	InputIndex  int `json:"inputIndex"`
+	NoticeIndex int `json:"noticeIndex"`
+}
+
+// GetInputIndex returns __getNoticeInput.InputIndex, and is useful for accessing the field via an interface.
+func (v *__getNoticeInput) GetInputIndex() int { return v.InputIndex }
+
+// GetNoticeIndex returns __getNoticeInput.NoticeIndex, and is useful for accessing the field via an interface.
+func (v *__getNoticeInput) GetNoticeIndex() int { return v.NoticeIndex }
+
 // getInputInput includes the requested fields of the GraphQL type Input.
 // The GraphQL type's documentation follows.
 //
 // Request submitted to the application to advance its state
 type getInputInput struct {
-	// Input index starting from genesis
-	Index int `json:"index"`
 	// Status of the input
 	Status CompletionStatus `json:"status"`
 	// Number of the base layer block in which the input was recorded
 	BlockNumber string `json:"blockNumber"`
 }
-
-// GetIndex returns getInputInput.Index, and is useful for accessing the field via an interface.
-func (v *getInputInput) GetIndex() int { return v.Index }
 
 // GetStatus returns getInputInput.Status, and is useful for accessing the field via an interface.
 func (v *getInputInput) GetStatus() CompletionStatus { return v.Status }
@@ -60,11 +67,31 @@ type getInputResponse struct {
 // GetInput returns getInputResponse.Input, and is useful for accessing the field via an interface.
 func (v *getInputResponse) GetInput() getInputInput { return v.Input }
 
+// getNoticeNotice includes the requested fields of the GraphQL type Notice.
+// The GraphQL type's documentation follows.
+//
+// Informational statement that can be validated in the base layer blockchain
+type getNoticeNotice struct {
+	// Notice data as a payload in Ethereum hex binary format, starting with '0x'
+	Payload string `json:"payload"`
+}
+
+// GetPayload returns getNoticeNotice.Payload, and is useful for accessing the field via an interface.
+func (v *getNoticeNotice) GetPayload() string { return v.Payload }
+
+// getNoticeResponse is returned by getNotice on success.
+type getNoticeResponse struct {
+	// Get notice based on its index
+	Notice getNoticeNotice `json:"notice"`
+}
+
+// GetNotice returns getNoticeResponse.Notice, and is useful for accessing the field via an interface.
+func (v *getNoticeResponse) GetNotice() getNoticeNotice { return v.Notice }
+
 // The query or mutation executed by getInput.
 const getInput_Operation = `
 query getInput ($inputIndex: Int!) {
 	input(index: $inputIndex) {
-		index
 		status
 		blockNumber
 	}
@@ -86,6 +113,43 @@ func getInput(
 	var err error
 
 	var data getInputResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+// The query or mutation executed by getNotice.
+const getNotice_Operation = `
+query getNotice ($inputIndex: Int!, $noticeIndex: Int!) {
+	notice(noticeIndex: $noticeIndex, inputIndex: $inputIndex) {
+		payload
+	}
+}
+`
+
+func getNotice(
+	ctx context.Context,
+	client graphql.Client,
+	inputIndex int,
+	noticeIndex int,
+) (*getNoticeResponse, error) {
+	req := &graphql.Request{
+		OpName: "getNotice",
+		Query:  getNotice_Operation,
+		Variables: &__getNoticeInput{
+			InputIndex:  inputIndex,
+			NoticeIndex: noticeIndex,
+		},
+	}
+	var err error
+
+	var data getNoticeResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

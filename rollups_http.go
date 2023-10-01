@@ -5,7 +5,6 @@ package eggroll
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -196,17 +195,4 @@ func checkStatusOk(resp *http.Response) error {
 			resp.StatusCode, string(body))
 	}
 	return nil
-}
-
-// Encode bytes to hex string.
-func encodeHex(payload []byte) string {
-	return "0x" + hex.EncodeToString(payload)
-}
-
-// Decode hex string to bytes.
-func decodeHex(payload string) ([]byte, error) {
-	if len(payload) < 2 {
-		return nil, fmt.Errorf("invalid hex string '%v'", payload)
-	}
-	return hex.DecodeString(payload[2:])
 }
