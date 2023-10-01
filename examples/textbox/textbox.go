@@ -5,12 +5,12 @@
 package textbox
 
 // Append a value to the text box.
-type Append struct {
+type InputAppend struct {
 	Value string
 }
 
 // Clear the text box.
-type Clear struct {
+type InputClear struct {
 }
 
 // Text box shared state.

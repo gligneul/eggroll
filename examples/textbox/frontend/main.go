@@ -14,9 +14,9 @@ import (
 
 // Redefine the types to make the example cleaner
 type (
-	Append textbox.Append
-	Clear  textbox.Clear
-	State  textbox.State
+	InputAppend textbox.InputAppend
+	InputClear  textbox.InputClear
+	State       textbox.State
 )
 
 func main() {
@@ -25,13 +25,14 @@ func main() {
 	client := eggroll.NewClient[State]()
 
 	// indices, err := client.Send(
-	// 	&Clear{},
-	// 	&Append{Value: "egg"},
-	// 	&Append{Value: "roll"},
+	// 	&InputClear{},
+	// 	&InputAppend{Value: "egg"},
+	// 	&InputAppend{Value: "roll"},
 	// )
 	// if err != nil {
 	// 	log.Panic(err)
 	// }
+	//
 	// lastInput := indices[len(indices)-1]
 
 	lastInput := 2
