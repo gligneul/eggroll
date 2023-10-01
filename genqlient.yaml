@@ -1,0 +1,8 @@
+schema: schema.graphql
+operations:
+- "*.go"
+generated: generated.go
+
+bindings:
+  BigInt:
+    type: string

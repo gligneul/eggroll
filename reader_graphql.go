@@ -4,107 +4,53 @@
 package eggroll
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
-	"strings"
+	"strconv"
+
+	"github.com/Khan/genqlient/graphql"
 )
 
 // RollupsReader implementation that connects to the Rollups Node GraphQL API.
 type GraphqlReader struct {
-	Endpoint string
+	ctx    context.Context
+	client graphql.Client
+}
+
+func NewGraphqlReader(ctx context.Context, endpoint string) *GraphqlReader {
+	client := graphql.NewClient(endpoint, http.DefaultClient)
+	return &GraphqlReader{
+		ctx:    ctx,
+		client: client,
+	}
 }
 
 func (r *GraphqlReader) Input(index int) (*Input, error) {
-	query := `query ($inputIndex: Int!) {
-		input(index: $inputIndex) {
-			index
-			status
-			blockNumber
-		}
-	}`
+	_ = `# @genqlient
+	  query getInput($inputIndex: Int!) {
+	    input(index: $inputIndex) {
+	      index
+	      status
+	      blockNumber
+	    }
+	  }
+	`
 
-	variables := make(map[string]any)
-	variables["inputIndex"] = index
-
-	reqData := make(map[string]any)
-	reqData["query"] = query
-	reqData["variables"] = variables
-
-	dataJson, err := json.Marshal(&reqData)
+	resp, err := getInput(r.ctx, r.client, index)
 	if err != nil {
-		log.Fatalf("failed to encode json: %v", err)
+		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, r.Endpoint, bytes.NewBuffer(dataJson))
+	blockNumber, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to perform request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read body: %v", err)
-		}
-		return nil, fmt.Errorf("got invalid status %v: %v\n",
-			resp.StatusCode, string(body))
+		return nil, fmt.Errorf("failed to decode block number: %v", err)
 	}
 
-	graphqlResp := make(map[string]json.RawMessage)
-	if err = json.NewDecoder(resp.Body).Decode(&graphqlResp); err != nil {
-		return nil, fmt.Errorf("failed to decode GraphQL response: %v", err)
+	input := &Input{
+		Index:       resp.Input.Index,
+		Status:      resp.Input.Status,
+		BlockNumber: blockNumber,
 	}
-
-	if rawErrors, ok := graphqlResp["errors"]; ok {
-		return nil, handleGraphqlErrors(rawErrors)
-	}
-
-	rawData, ok := graphqlResp["data"]
-	if !ok {
-		return nil, fmt.Errorf("graphql: data not found")
-	}
-
-	log.Printf(">> %v\n", string(rawData))
-
-	var data struct {
-		Input *Input
-	}
-
-	if err = json.Unmarshal(rawData, &data); err != nil {
-		return nil, fmt.Errorf("failed to decode GraphQL response: %v", err)
-	}
-
-	return data.Input, nil
-}
-
-// Format the JSON with graphql errors into a error message
-func handleGraphqlErrors(rawErrors json.RawMessage) error {
-	var graphqlErrors []struct {
-		Message string
-	}
-
-	if err := json.Unmarshal(rawErrors, &graphqlErrors); err != nil {
-		return fmt.Errorf("failed to decode GraphQL errors: %v", err)
-	}
-
-	var sb strings.Builder
-	sb.WriteString("graphql: ")
-	for i, graphqlErr := range graphqlErrors {
-		if i != 0 {
-			sb.WriteString("; ")
-		}
-		sb.WriteString(graphqlErr.Message)
-	}
-	return errors.New(sb.String())
+	return input, nil
 }

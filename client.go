@@ -4,6 +4,7 @@
 package eggroll
 
 import (
+	"context"
 	"log"
 	"os"
 	"sync"
@@ -39,9 +40,7 @@ func NewClient[S any]() *Client[S] {
 
 // Create the Client with a custom config.
 func NewClientFromConfig[S any](config ClientConfig) *Client[S] {
-	reader := &GraphqlReader{
-		Endpoint: config.GraphqlEndpoint,
-	}
+	reader := NewGraphqlReader(context.Background(), config.GraphqlEndpoint)
 	return &Client[S]{
 		Reader: reader,
 	}

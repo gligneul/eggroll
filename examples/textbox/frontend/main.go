@@ -20,7 +20,7 @@ type (
 func main() {
 	client := eggroll.NewClient[State]()
 
-	input, err := client.Reader.Input(0)
+	input, err := client.Reader.Input(1)
 	fmt.Println(input, err)
 
 	// indices, err := client.Send(
