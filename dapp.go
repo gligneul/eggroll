@@ -6,7 +6,6 @@ package eggroll
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"runtime"
 )
 
@@ -17,16 +16,13 @@ type DAppConfig struct {
 
 // Load the config from environment variables.
 func (c *DAppConfig) Load() {
-	varName := "EGGROLL_ROLLUPS_HTTP_ENDPOINT"
-	c.RollupsEndpoint = os.Getenv(varName)
-	if c.RollupsEndpoint == "" {
-		if runtime.GOARCH == "riscv64" {
-			c.RollupsEndpoint = "http://localhost:5004"
-		} else {
-			c.RollupsEndpoint = "http://localhost:8080/host-runner"
-		}
+	var defaultEndpoint string
+	if runtime.GOARCH == "riscv64" {
+		defaultEndpoint = "http://localhost:5004"
+	} else {
+		defaultEndpoint = "http://localhost:8080/host-runner"
 	}
-	log.Printf("set %v=%v\n", varName, c.RollupsEndpoint)
+	c.RollupsEndpoint = loadVar("ROLLUPS_HTTP_ENDPOINT", defaultEndpoint)
 }
 
 // DApp is the back-end for the rollups.

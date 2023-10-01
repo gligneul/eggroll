@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 	"strings"
 	"time"
 )
@@ -20,12 +18,7 @@ type ClientConfig struct {
 
 // Load the config from environment variables.
 func (c *ClientConfig) Load() {
-	varName := "EGGROLL_GRAPHQL_ENDPOINT"
-	c.GraphqlEndpoint = os.Getenv(varName)
-	if c.GraphqlEndpoint == "" {
-		c.GraphqlEndpoint = "http://localhost:8080/graphql"
-	}
-	log.Printf("set %v=%v\n", varName, c.GraphqlEndpoint)
+	c.GraphqlEndpoint = loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
 }
 
 // The Client interacts with the DApp from the outside.
