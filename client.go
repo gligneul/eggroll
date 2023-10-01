@@ -3,19 +3,31 @@
 
 package eggroll
 
-import "sync"
+import (
+	"log"
+	"os"
+	"sync"
+)
 
 // Configuration for the Client.
 type ClientConfig struct {
+	GraphqlEndpoint string
 }
 
 // Load the config from environment variables.
 func (c *ClientConfig) Load() {
+	varName := "EGGROLL_GRAPHQL_ENDPOINT"
+	c.GraphqlEndpoint = os.Getenv(varName)
+	if c.GraphqlEndpoint == "" {
+		c.GraphqlEndpoint = "http://localhost:8080/graphql"
+	}
+	log.Printf("set %v=%v\n", varName, c.GraphqlEndpoint)
 }
 
 // The Client interacts with the DApp from the outside.
 type Client[S any] struct {
-	state clientState[S]
+	Reader Reader
+	state  clientState[S]
 }
 
 // Create the Client loading the config from environment variables.
@@ -27,7 +39,12 @@ func NewClient[S any]() *Client[S] {
 
 // Create the Client with a custom config.
 func NewClientFromConfig[S any](config ClientConfig) *Client[S] {
-	return &Client[S]{}
+	reader := &GraphqlReader{
+		Endpoint: config.GraphqlEndpoint,
+	}
+	return &Client[S]{
+		Reader: reader,
+	}
 }
 
 // Send inputs to the DApp back end.

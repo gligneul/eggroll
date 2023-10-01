@@ -143,7 +143,9 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 		RequestType string          `json:"request_type"`
 		Data        json.RawMessage `json:"data"`
 	}
-	json.NewDecoder(resp.Body).Decode(&finishResp)
+	if err = json.NewDecoder(resp.Body).Decode(&finishResp); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode finish response: %v", err)
+	}
 
 	if finishResp.RequestType != "advance_state" {
 		log.Printf("rejecting %v", finishResp.RequestType)
