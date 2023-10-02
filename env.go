@@ -36,12 +36,27 @@ func (e *Env) Metadata() *Metadata {
 	return e.metadata
 }
 
-// Send a report for debugging purposes.
-// The reports will be available as logs for the front-end client.
-// It is not necessary to add a `\n` at the end of the report.
-func (e *Env) Report(format string, a ...any) {
-	message := fmt.Sprintf(format, a...)
-	log.Println(message)
+// Call fmt.Sprintln, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Logln(a any) {
+	e.Log(fmt.Sprintln(a))
+}
+
+// Call fmt.Sprintf, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Logf(format string, a ...any) {
+	e.Log(fmt.Sprintf(format, a...))
+}
+
+// Call fmt.Sprint, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Log(a any) {
+	e.log(fmt.Sprint(a))
+}
+
+// Log the message and send a report.
+func (e *Env) log(message string) {
+	log.Print(message)
 	if err := e.rollups.sendReport([]byte(message)); err != nil {
 		log.Fatalf("failed to send report: %v\n", err)
 	}

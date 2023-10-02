@@ -26,8 +26,18 @@ func printInput(input any) {
 	log.Println(eggroll.EncodeHex(bytes))
 }
 
+func check(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func must[T any](obj T, err error) T {
+	check(err)
+	return obj
+}
+
 func main() {
-	var err error
 	ctx := context.Background()
 	client := eggroll.NewClient[State]()
 
@@ -35,13 +45,14 @@ func main() {
 	printInput(&InputAppend{Value: "egg"})
 	printInput(&InputAppend{Value: "roll"})
 
-	if err = client.WaitFor(ctx, 2); err != nil {
-		log.Fatal(err)
-	}
+	check(client.WaitFor(ctx, 2))
 
-	var state *State
-	if state, err = client.State(ctx); err != nil {
-		log.Fatal(err)
+	state := must(client.State(ctx))
+	log.Printf("Text box: '%v'\n", state.TextBox)
+
+	logs := must(client.Logs(ctx))
+	log.Println("Logs:")
+	for _, msg := range logs {
+		log.Print(">", msg)
 	}
-	log.Println(state.TextBox) // -> eggroll
 }

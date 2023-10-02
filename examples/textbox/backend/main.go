@@ -16,13 +16,13 @@ type (
 )
 
 func clearHandler(env *eggroll.Env, state *State, _ *InputClear) error {
-	env.Report("received input clear")
+	env.Logln("received input clear")
 	state.TextBox = ""
 	return nil
 }
 
 func appendHandler(env *eggroll.Env, state *State, input *InputAppend) error {
-	env.Report("received input append with '%v'", input.Value)
+	env.Logf("received input append with '%v'\n", input.Value)
 	state.TextBox += input.Value
 	return nil
 }

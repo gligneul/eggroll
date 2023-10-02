@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -23,9 +22,17 @@ func (c *ClientConfig) Load() {
 	c.ProviderEndpoint = loadVar("ETH_ENDPOINT", "http://localhost:8545")
 }
 
+// Read the rollups state from the outside.
+type readerApi interface {
+	Input(ctx context.Context, index int) (*Input, error)
+	Notice(ctx context.Context, inputIndex int, noticeIndex int) (*Notice, error)
+	Report(ctx context.Context, inputIndex int, reportIndex int) (*Report, error)
+	LastReports(ctx context.Context, last int) (*Page[Report], error)
+}
+
 // The Client interacts with the DApp from the outside.
 type Client[S any] struct {
-	Reader    Reader
+	reader    readerApi
 	client    blockchainClient
 	state     S
 	nextInput int
@@ -43,7 +50,7 @@ func NewClientFromConfig[S any](config ClientConfig) *Client[S] {
 	reader := NewGraphqlReader(config.GraphqlEndpoint)
 	client := newEthClient(config.ProviderEndpoint)
 	return &Client[S]{
-		Reader:    reader,
+		reader:    reader,
 		client:    client,
 		nextInput: 0,
 	}
@@ -59,9 +66,9 @@ func (c *Client[S]) Send(ctx context.Context, input ...any) error {
 // Wait until the DApp back end processes a given input.
 func (c *Client[S]) WaitFor(ctx context.Context, inputIndex int) error {
 	for {
-		input, err := c.Reader.Input(ctx, inputIndex)
+		input, err := c.reader.Input(ctx, inputIndex)
 		if err != nil {
-			if strings.HasSuffix(err.Error(), "not found\n") {
+			if _, ok := err.(NotFound); ok {
 				goto wait
 			}
 			return fmt.Errorf("faild to read input: %v", err)
@@ -78,9 +85,9 @@ func (c *Client[S]) WaitFor(ctx context.Context, inputIndex int) error {
 func (c *Client[S]) State(ctx context.Context) (*S, error) {
 	// Sync to the latest state
 	for {
-		input, err := c.Reader.Input(ctx, c.nextInput)
+		input, err := c.reader.Input(ctx, c.nextInput)
 		if err != nil {
-			if strings.HasSuffix(err.Error(), "not found\n") {
+			if _, ok := err.(NotFound); ok {
 				break
 			}
 			return nil, fmt.Errorf("failed to read input: %v", err)
@@ -89,7 +96,7 @@ func (c *Client[S]) State(ctx context.Context) (*S, error) {
 			break
 		}
 		if input.Status == CompletionStatusAccepted {
-			notice, err := c.Reader.Notice(ctx, c.nextInput, 0)
+			notice, err := c.reader.Notice(ctx, c.nextInput, 0)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read notice: %v", err)
 			}
@@ -104,17 +111,22 @@ func (c *Client[S]) State(ctx context.Context) (*S, error) {
 	return &c.state, nil
 }
 
-// Get the logs for a given input.
-func (c *Client[S]) LogsFrom(input int) (string, error) {
-	return "", nil
+// Get the last 20 entries of log from the DApp.
+func (c *Client[S]) Logs(ctx context.Context) ([]string, error) {
+	return c.LogsTail(ctx, 20)
 }
 
-// Get the last n lines of logs from the DApp.
-func (c *Client[S]) LogsTail(n int) (string, error) {
-	return "", nil
-}
+// Get the last N entries of logs from the DApp.
+func (c *Client[S]) LogsTail(ctx context.Context, n int) ([]string, error) {
+	page, err := c.reader.LastReports(ctx, n)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get reports: %v", err)
+	}
 
-// Get the last 20 lines of log.
-func (c *Client[S]) Logs() (string, error) {
-	return c.LogsTail(20)
+	var logs []string
+	for _, report := range page.Nodes {
+		logs = append(logs, string(report.Payload))
+	}
+
+	return logs, nil
 }

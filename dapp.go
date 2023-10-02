@@ -70,7 +70,7 @@ func (d *DApp[S]) Roll() {
 		}
 
 		if err = d.handlers.dispatch(env, &state, payload); err != nil {
-			env.Report(err.Error())
+			env.Logf("rejecting input: %v\n", err)
 			status = statusReject
 			continue
 		}
