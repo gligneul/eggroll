@@ -71,10 +71,17 @@ func main() {
 	ctx := context.Background()
 	client := eggroll.NewClient[State]()
 
-	Check(client.Send(&InputClear{}))
-	Check(client.Send(&InputAppend{Value: "egg"}))
-	Check(client.Send(&InputAppend{Value: "roll"}))
+	inputs := []any{
+		&InputClear{},
+		&InputAppend{Value: "egg"},
+		&InputAppend{Value: "roll"},
+	}
+	for _, input := range inputs {
+		log.Printf("Sending input %#v\n", input)
+		Check(client.Send(ctx, input))
+	}
 
+	log.Println("Waiting for inputs to be processed")
 	Check(client.WaitFor(ctx, 3))
 
 	state := Must(client.State(ctx))

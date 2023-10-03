@@ -7,7 +7,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gligneul/eggroll"
 	"github.com/gligneul/eggroll/examples/textbox"
 )
@@ -18,14 +17,6 @@ type (
 	InputClear  textbox.InputClear
 	State       textbox.State
 )
-
-func printInput(input any) {
-	bytes, err := eggroll.EncodeInput(input)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(hexutil.Encode(bytes))
-}
 
 func Check(err error) {
 	if err != nil {
@@ -42,10 +33,17 @@ func main() {
 	ctx := context.Background()
 	client := eggroll.NewClient[State]()
 
-	printInput(&InputClear{})
-	printInput(&InputAppend{Value: "egg"})
-	printInput(&InputAppend{Value: "roll"})
+	inputs := []any{
+		&InputClear{},
+		&InputAppend{Value: "egg"},
+		&InputAppend{Value: "roll"},
+	}
+	for _, input := range inputs {
+		log.Printf("Sending input %#v\n", input)
+		Check(client.Send(ctx, input))
+	}
 
+	log.Println("Waiting for inputs to be processed")
 	Check(client.WaitFor(ctx, 3))
 
 	state := Must(client.State(ctx))
