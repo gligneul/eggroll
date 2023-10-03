@@ -24,7 +24,7 @@ type ContractConfig struct {
 func (c *ContractConfig) Load() {
 	var defaultEndpoint string
 	if runtime.GOARCH == "riscv64" {
-		defaultEndpoint = "http://localhost:5004"
+		defaultEndpoint = "http://127.0.0.1:5004"
 	} else {
 		defaultEndpoint = "http://localhost:8080/host-runner"
 	}
