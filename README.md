@@ -1,4 +1,4 @@
-# EggRoll 🥢
+# EggRoll 🐣🛼
 
 A high-level, opinionated, lambda-based framework for Cartesi Rollups in Go.
 

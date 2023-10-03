@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package eggroll
+package rollups
 
 import (
 	"bytes"
@@ -11,16 +11,45 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+// Metadata from the input.
+type Metadata struct {
+	Sender         common.Address
+	BlockNumber    int64
+	BlockTimestamp int64
+}
+
+// Status when finishing a rollups request.
+type FinishStatus int
+
+const (
+	FinishStatusAccept FinishStatus = iota
+	FinishStatusReject
+)
+
+func (status FinishStatus) String() string {
+	toString := map[FinishStatus]string{
+		FinishStatusAccept: "accept",
+		FinishStatusReject: "reject",
+	}
+	return toString[status]
+}
+
 // Implement the Rollups API using the Rollups HTTP server.
-type rollupsHttpApi struct {
+type RollupsHTTP struct {
 	endpoint string
 }
 
+// Create a new Rollups HTTP client.
+func NewRollupsHTTP(endpoint string) *RollupsHTTP {
+	return &RollupsHTTP{endpoint}
+}
+
 // Send a post request and return the http response.
-func (r *rollupsHttpApi) sendPost(route string, data []byte) (*http.Response, error) {
+func (r *RollupsHTTP) sendPost(route string, data []byte) (*http.Response, error) {
 	endpoint := r.endpoint + "/" + route
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(data))
 	if err != nil {
@@ -36,7 +65,8 @@ func (r *rollupsHttpApi) sendPost(route string, data []byte) (*http.Response, er
 	return resp, nil
 }
 
-func (r *rollupsHttpApi) sendVoucher(destination Address, payload []byte) error {
+// Send a voucher to the Rollups API.
+func (r *RollupsHTTP) SendVoucher(destination common.Address, payload []byte) error {
 	request := struct {
 		Destination string `json:"destination"`
 		Payload     string `json:"payload"`
@@ -63,7 +93,8 @@ func (r *rollupsHttpApi) sendVoucher(destination Address, payload []byte) error 
 	return nil
 }
 
-func (r *rollupsHttpApi) sendNotice(payload []byte) error {
+// Send a notice to the Rollups API.
+func (r *RollupsHTTP) SendNotice(payload []byte) error {
 	request := struct {
 		Payload string `json:"payload"`
 	}{
@@ -88,7 +119,8 @@ func (r *rollupsHttpApi) sendNotice(payload []byte) error {
 	return nil
 }
 
-func (r *rollupsHttpApi) sendReport(payload []byte) error {
+// Send a report to the Rollups API.
+func (r *RollupsHTTP) SendReport(payload []byte) error {
 	request := struct {
 		Payload string `json:"payload"`
 	}{
@@ -113,7 +145,9 @@ func (r *rollupsHttpApi) sendReport(payload []byte) error {
 	return nil
 }
 
-func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) {
+// Send a finish request to the Rollups API.
+// Return the advance payload and the metadata.
+func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
 	request := struct {
 		Status string `json:"status"`
 	}{
@@ -133,7 +167,7 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 
 	if resp.StatusCode == http.StatusAccepted {
 		// got StatusAccepted, trying again
-		return r.finish(status)
+		return r.Finish(status)
 	}
 
 	if err = checkStatusOk(resp); err != nil {
@@ -150,7 +184,7 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 
 	if finishResp.RequestType != "advance_state" {
 		log.Printf("rejecting %v", finishResp.RequestType)
-		return r.finish(statusReject)
+		return r.Finish(FinishStatusReject)
 	}
 
 	var advanceRequest struct {
@@ -178,7 +212,7 @@ func (r *rollupsHttpApi) finish(status finishStatus) ([]byte, *Metadata, error) 
 	}
 
 	metadata := &Metadata{
-		Sender:         Address(sender),
+		Sender:         common.Address(sender),
 		BlockNumber:    advanceRequest.Metadata.BlockNumber,
 		BlockTimestamp: advanceRequest.Metadata.Timestamp,
 	}

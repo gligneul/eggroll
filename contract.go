@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/gligneul/eggroll/rollups"
 )
 
 // Configuration for the Contract.
@@ -28,11 +31,64 @@ func (c *ContractConfig) Load() {
 	c.RollupsEndpoint = loadVar("ROLLUPS_HTTP_ENDPOINT", defaultEndpoint)
 }
 
+// Interface with the Rollups API.
+// We don't expose this API because calling it directly will break EggRoll assumptions.
+type rollupsAPI interface {
+	SendVoucher(destination common.Address, payload []byte) error
+	SendNotice(payload []byte) error
+	SendReport(payload []byte) error
+	Finish(status rollups.FinishStatus) ([]byte, *rollups.Metadata, error)
+}
+
+// Env allows the DApp contract to interact with the Rollups API.
+type Env struct {
+	rollups  rollupsAPI
+	metadata *rollups.Metadata
+}
+
+// Get the Metadata for the current input.
+func (e *Env) Metadata() *rollups.Metadata {
+	return e.metadata
+}
+
+// Call fmt.Sprintln, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Logln(a any) {
+	e.Log(fmt.Sprintln(a))
+}
+
+// Call fmt.Sprintf, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Logf(format string, a ...any) {
+	e.Log(fmt.Sprintf(format, a...))
+}
+
+// Call fmt.Sprint, print the log, and store the result in the rollups state.
+// It is possible to retrieve this log in the DApp front end.
+func (e *Env) Log(a any) {
+	e.log(fmt.Sprint(a))
+}
+
+// Log the message and send a report.
+func (e *Env) log(message string) {
+	log.Print(message)
+	if err := e.rollups.SendReport([]byte(message)); err != nil {
+		log.Fatalf("failed to send report: %v\n", err)
+	}
+}
+
+// Send a voucher.
+func (e *Env) Voucher(destination common.Address, payload []byte) {
+	if err := e.rollups.SendVoucher(destination, payload); err != nil {
+		log.Fatalf("failed to send voucher: %v\n", err)
+	}
+}
+
 // Contract is the back-end for the rollups.
 // It dispatch the input to the corresponding handler while it advances the
 // rollups state.
 type Contract[S any] struct {
-	rollups  rollupsApi
+	rollups  rollupsAPI
 	handlers handlerMap[S]
 }
 
@@ -45,7 +101,7 @@ func NewContract[S any]() *Contract[S] {
 
 // Create the Contract with a custom config.
 func NewContractFromConfig[S any](config ContractConfig) *Contract[S] {
-	rollups := &rollupsHttpApi{config.RollupsEndpoint}
+	rollups := rollups.NewRollupsHTTP(config.RollupsEndpoint)
 	contract := &Contract[S]{
 		rollups:  rollups,
 		handlers: make(handlerMap[S]),
@@ -58,21 +114,21 @@ func NewContractFromConfig[S any](config ContractConfig) *Contract[S] {
 func (d *Contract[S]) Roll() {
 	var state S
 	env := &Env{rollups: d.rollups}
-	status := statusAccept
+	status := rollups.FinishStatusAccept
 
 	for {
 		var (
 			payload []byte
 			err     error
 		)
-		payload, env.metadata, err = d.rollups.finish(status)
+		payload, env.metadata, err = d.rollups.Finish(status)
 		if err != nil {
 			log.Fatalf("failed to send finish: %v\n", err)
 		}
 
 		if err = d.handlers.dispatch(env, &state, payload); err != nil {
 			env.Logf("rejecting input: %v\n", err)
-			status = statusReject
+			status = rollups.FinishStatusReject
 			continue
 		}
 
@@ -80,10 +136,10 @@ func (d *Contract[S]) Roll() {
 		if err != nil {
 			log.Fatalf("failed to create state snapshot: %v\n", err)
 		}
-		if err = d.rollups.sendNotice(stateSnapshot); err != nil {
+		if err = d.rollups.SendNotice(stateSnapshot); err != nil {
 			log.Fatalf("failed to send notice: %v\n", err)
 		}
-		status = statusAccept
+		status = rollups.FinishStatusAccept
 	}
 }
 

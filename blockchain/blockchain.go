@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package eggroll
+package blockchain
 
 import (
 	"context"
@@ -12,18 +12,20 @@ import (
 )
 
 // Implements blockchain client for Ethereum using go-ethereum.
-type ethClient struct {
+type ETHClient struct {
 	endpoint string
 }
 
-func newEthClient(endpoint string) *ethClient {
-	client := &ethClient{
+// Create new ETH client.
+func NewETHClient(endpoint string) *ETHClient {
+	client := &ETHClient{
 		endpoint: endpoint,
 	}
 	return client
 }
 
-func (c *ethClient) Send(ctx context.Context) {
+// Send input to the blockchain.
+func (c *ETHClient) SendInput(ctx context.Context, input []byte) error {
 
 	client, err := ethclient.Dial(c.endpoint)
 	if err != nil {
@@ -49,4 +51,6 @@ func (c *ethClient) Send(ctx context.Context) {
 	// 	log.Fatal(err)
 	// }
 	// fmt.Println(balance)
+
+	return nil
 }

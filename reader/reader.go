@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package eggroll
+package reader
 
 import (
 	"context"
@@ -63,20 +63,20 @@ func checkNotFound(typeName string, err error) error {
 }
 
 // Read the rollups state by connecting to the rollups node GraphQL API.
-type GraphqlReader struct {
+type GraphQLReader struct {
 	client graphql.Client
 }
 
 // Create a new GraphQL reader given the endpoint.
-func NewGraphqlReader(endpoint string) *GraphqlReader {
+func NewGraphQLReader(endpoint string) *GraphQLReader {
 	client := graphql.NewClient(endpoint, http.DefaultClient)
-	return &GraphqlReader{
+	return &GraphQLReader{
 		client: client,
 	}
 }
 
 // Get an input from the rollups node.
-func (r *GraphqlReader) Input(ctx context.Context, index int) (*Input, error) {
+func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 	_ = `# @genqlient
 	query getInput($inputIndex: Int!) {
 	  input(index: $inputIndex) {
@@ -105,7 +105,7 @@ func (r *GraphqlReader) Input(ctx context.Context, index int) (*Input, error) {
 
 // Get a notice from the rollups node.
 // If the notice doesn't exist, return NotFound error.
-func (r *GraphqlReader) Notice(ctx context.Context, inputIndex int, noticeIndex int) (*Notice, error) {
+func (r *GraphQLReader) Notice(ctx context.Context, inputIndex int, noticeIndex int) (*Notice, error) {
 	_ = `# @genqlient
 	query getNotice($inputIndex: Int!, $noticeIndex: Int!) {
 	  notice(noticeIndex: $noticeIndex, inputIndex: $inputIndex) {
@@ -134,7 +134,7 @@ func (r *GraphqlReader) Notice(ctx context.Context, inputIndex int, noticeIndex 
 
 // Get a report from the rollups node.
 // If the report doesn't exist, return NotFound error.
-func (r *GraphqlReader) Report(ctx context.Context, inputIndex int, reportIndex int) (*Report, error) {
+func (r *GraphQLReader) Report(ctx context.Context, inputIndex int, reportIndex int) (*Report, error) {
 	_ = `# @genqlient
 	query getReport($inputIndex: Int!, $reportIndex: Int!) {
 	  report(reportIndex: $reportIndex, inputIndex: $inputIndex) {
@@ -162,8 +162,7 @@ func (r *GraphqlReader) Report(ctx context.Context, inputIndex int, reportIndex 
 }
 
 // Get a page of reports from the rollups node.
-func (r *GraphqlReader) LastReports(ctx context.Context, last int) (*Page[Report], error) {
-
+func (r *GraphQLReader) LastReports(ctx context.Context, last int) (*Page[Report], error) {
 	_ = `# @genqlient
 	query getLastReports($last: Int) {
 	  reports(last: $last) {
