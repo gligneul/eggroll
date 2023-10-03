@@ -222,7 +222,8 @@ func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
 
 // Check the whether the status code is Ok, if not return an error.
 func checkStatusOk(resp *http.Response) error {
-	if resp.StatusCode != http.StatusOK {
+	statusOk := resp.StatusCode >= 200 && resp.StatusCode < 300
+	if !statusOk {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read body: %v", err)
