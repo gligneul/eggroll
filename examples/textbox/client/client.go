@@ -7,6 +7,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gligneul/eggroll"
 	"github.com/gligneul/eggroll/examples/textbox"
 )
@@ -23,7 +24,7 @@ func printInput(input any) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(eggroll.EncodeHex(bytes))
+	log.Println(hexutil.Encode(bytes))
 }
 
 func Check(err error) {

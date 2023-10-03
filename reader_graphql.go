@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // Rollups input from the Reader API.
@@ -117,7 +118,7 @@ func (r *GraphqlReader) Notice(ctx context.Context, inputIndex int, noticeIndex 
 		return nil, checkNotFound("notice", err)
 	}
 
-	payload, err := DecodeHex(resp.Notice.Payload)
+	payload, err := hexutil.Decode(resp.Notice.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode notice payload: %v", err)
 	}
@@ -146,7 +147,7 @@ func (r *GraphqlReader) Report(ctx context.Context, inputIndex int, reportIndex 
 		return nil, checkNotFound("report", err)
 	}
 
-	payload, err := DecodeHex(resp.Report.Payload)
+	payload, err := hexutil.Decode(resp.Report.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode report payload: %v", err)
 	}
@@ -193,7 +194,7 @@ func (r *GraphqlReader) LastReports(ctx context.Context, last int) (*Page[Report
 
 	var reports []Report
 	for _, edge := range resp.Reports.Edges {
-		payload, err := DecodeHex(edge.Node.Payload)
+		payload, err := hexutil.Decode(edge.Node.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode report payload %v", err)
 		}
