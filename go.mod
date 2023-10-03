@@ -1,6 +1,6 @@
 module github.com/gligneul/eggroll
 
-go 1.21.1
+go 1.21
 
 require (
 	github.com/Khan/genqlient v0.6.0

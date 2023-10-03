@@ -2,6 +2,8 @@
 
 A high-level, opinionated, lambda-based framework for Cartesi Rollups in Go.
 
+![build](https://github.com/gligneul/eggroll/actions/workflows/go.yml/badge.svg)
+
 ## Requirements
 
 EggRoll is built on top of the [Cartesi Rollups](https://docs.cartesi.io/cartesi-rollups/) infrastructure version 1.0.
