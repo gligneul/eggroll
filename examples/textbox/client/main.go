@@ -7,8 +7,9 @@ import (
 	"context"
 	"log"
 
+	"textbox"
+
 	"github.com/gligneul/eggroll"
-	"github.com/gligneul/eggroll/examples/textbox"
 )
 
 // Redefine the types to make the example cleaner
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	log.Println("Waiting for inputs to be processed")
-	Check(client.WaitFor(ctx, 3))
+	Check(client.WaitFor(ctx, 2))
 
 	state := Must(client.State(ctx))
 	log.Printf("Text box: '%v'\n", state.TextBox)

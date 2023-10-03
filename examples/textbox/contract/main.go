@@ -4,8 +4,9 @@
 package main
 
 import (
+	"textbox"
+
 	"github.com/gligneul/eggroll"
-	"github.com/gligneul/eggroll/examples/textbox"
 )
 
 // Redefine the types to make the example cleaner.
