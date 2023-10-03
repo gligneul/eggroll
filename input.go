@@ -12,9 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Use the first 4 bytes of the keccak of the Input type as the handler key.
-// We do this to be compatible with inputs that are ABI encoded.
-// See: https://docs.soliditylang.org/en/latest/abi-spec.html
+// Key that identifies the input type.
 type inputKey [4]byte
 
 // Encode the input into bytes.
@@ -65,6 +63,9 @@ func genericInputKey(inputType reflect.Type) inputKey {
 		log.Panicf("input type must be a struct pointer; is *%v\n", inputType)
 	}
 
+	// Use the first 4 bytes of the keccak of the Input type as the handler key.
+	// We do this to be compatible with inputs that are ABI encoded.
+	// See: https://docs.soliditylang.org/en/latest/abi-spec.html
 	hash := crypto.Keccak256Hash([]byte(inputType.Name()))
 	return inputKey(hash[:4])
 }

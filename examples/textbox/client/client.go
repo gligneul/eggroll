@@ -26,14 +26,14 @@ func printInput(input any) {
 	log.Println(eggroll.EncodeHex(bytes))
 }
 
-func check(err error) {
+func Check(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func must[T any](obj T, err error) T {
-	check(err)
+func Must[T any](obj T, err error) T {
+	Check(err)
 	return obj
 }
 
@@ -45,12 +45,12 @@ func main() {
 	printInput(&InputAppend{Value: "egg"})
 	printInput(&InputAppend{Value: "roll"})
 
-	check(client.WaitFor(ctx, 2))
+	Check(client.WaitFor(ctx, 3))
 
-	state := must(client.State(ctx))
+	state := Must(client.State(ctx))
 	log.Printf("Text box: '%v'\n", state.TextBox)
 
-	logs := must(client.Logs(ctx))
+	logs := Must(client.Logs(ctx))
 	log.Println("Logs:")
 	for _, msg := range logs {
 		log.Print(">", msg)

@@ -1,6 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
+// A high-level, opinionated, lambda-based framework for Cartesi Rollups in Go.
 package eggroll
 
 import (
@@ -11,13 +12,13 @@ import (
 	"runtime"
 )
 
-// Configuration for the DApp.
-type DAppConfig struct {
+// Configuration for the Contract.
+type ContractConfig struct {
 	RollupsEndpoint string
 }
 
 // Load the config from environment variables.
-func (c *DAppConfig) Load() {
+func (c *ContractConfig) Load() {
 	var defaultEndpoint string
 	if runtime.GOARCH == "riscv64" {
 		defaultEndpoint = "http://localhost:5004"
@@ -27,34 +28,34 @@ func (c *DAppConfig) Load() {
 	c.RollupsEndpoint = loadVar("ROLLUPS_HTTP_ENDPOINT", defaultEndpoint)
 }
 
-// DApp is the back-end for the rollups.
+// Contract is the back-end for the rollups.
 // It dispatch the input to the corresponding handler while it advances the
 // rollups state.
-type DApp[S any] struct {
+type Contract[S any] struct {
 	rollups  rollupsApi
 	handlers handlerMap[S]
 }
 
-// Create the DApp loading the config from environment variables.
-func NewDApp[S any]() *DApp[S] {
-	var config DAppConfig
+// Create the Contract loading the config from environment variables.
+func NewContract[S any]() *Contract[S] {
+	var config ContractConfig
 	config.Load()
-	return NewDAppFromConfig[S](config)
+	return NewContractFromConfig[S](config)
 }
 
-// Create the DApp with a custom config.
-func NewDAppFromConfig[S any](config DAppConfig) *DApp[S] {
+// Create the Contract with a custom config.
+func NewContractFromConfig[S any](config ContractConfig) *Contract[S] {
 	rollups := &rollupsHttpApi{config.RollupsEndpoint}
-	dapp := DApp[S]{
+	contract := &Contract[S]{
 		rollups:  rollups,
 		handlers: make(handlerMap[S]),
 	}
-	return &dapp
+	return contract
 }
 
-// Start the DApp back end.
+// Start the Contract back end.
 // This function never returns and exits if there is an error.
-func (d *DApp[S]) Roll() {
+func (d *Contract[S]) Roll() {
 	var state S
 	env := &Env{rollups: d.rollups}
 	status := statusAccept
@@ -89,11 +90,11 @@ func (d *DApp[S]) Roll() {
 // Signature of the handler that advances the rollups state.
 type Handler[S, I any] func(*Env, *S, *I) error
 
-// Register a handler for a custom input to a DApp.
-func Register[S, I any](d *DApp[S], handler Handler[S, I]) {
-	// This function needs to be defined outside of the DApp interface
+// Register a handler for a custom input to a Contract.
+func Register[S, I any](d *Contract[S], handler Handler[S, I]) {
+	// This function needs to be defined outside of the Contract interface
 	// because Go doesn't support template parameters in methods.
-	// So, it is not possible to write DApp[S].Register[I](Handler[S, I]).
+	// So, it is not possible to write Contract[S].Register[I](Handler[S, I]).
 
 	key, decoder := getInputKeyDecoder[I]()
 

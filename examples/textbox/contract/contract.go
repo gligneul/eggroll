@@ -28,8 +28,8 @@ func appendHandler(env *eggroll.Env, state *State, input *InputAppend) error {
 }
 
 func main() {
-	dapp := eggroll.NewDApp[State]()
-	eggroll.Register(dapp, clearHandler)
-	eggroll.Register(dapp, appendHandler)
-	dapp.Roll()
+	contract := eggroll.NewContract[State]()
+	eggroll.Register(contract, clearHandler)
+	eggroll.Register(contract, appendHandler)
+	contract.Roll()
 }
