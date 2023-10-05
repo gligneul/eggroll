@@ -4,6 +4,8 @@
 // Shared types for the TextBox DApp.
 package textbox
 
+// @cut
+
 type InputAppend struct {
 	Value string
 }

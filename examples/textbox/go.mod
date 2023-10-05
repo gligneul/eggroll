@@ -2,7 +2,7 @@ module textbox
 
 go 1.21.1
 
-require github.com/gligneul/eggroll v0.0.0-20231004002001-b95afb32136e
+require github.com/gligneul/eggroll v0.0.0-20231005231405-63af2b398322
 
 require (
 	github.com/Khan/genqlient v0.6.0 // indirect

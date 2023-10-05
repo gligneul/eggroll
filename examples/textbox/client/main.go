@@ -12,7 +12,6 @@ import (
 	"github.com/gligneul/eggroll"
 )
 
-// Redefine the types to make the example cleaner
 type (
 	InputAppend textbox.InputAppend
 	InputClear  textbox.InputClear
@@ -30,24 +29,28 @@ func Must[T any](obj T, err error) T {
 	return obj
 }
 
+// @cut
+
 func main() {
 	ctx := context.Background()
-	client := eggroll.NewClient[State]()
+	client := eggroll.NewClient()
 
 	inputs := []any{
-		&InputClear{},
-		&InputAppend{Value: "egg"},
-		&InputAppend{Value: "roll"},
+		InputClear{},
+		InputAppend{Value: "egg"},
+		InputAppend{Value: "roll"},
 	}
 	for _, input := range inputs {
 		log.Printf("Sending input %#v\n", input)
-		Check(client.Send(ctx, input))
+		Check(client.SendGeneric(ctx, input))
 	}
 
 	log.Println("Waiting for inputs to be processed")
 	Check(client.WaitFor(ctx, 2))
 
-	state := Must(client.State(ctx))
+	Check(client.Sync(ctx))
+	var state State
+	Check(client.ReadState(&state))
 	log.Printf("Text box: '%v'\n", state.TextBox)
 
 	logs := Must(client.Logs(ctx))

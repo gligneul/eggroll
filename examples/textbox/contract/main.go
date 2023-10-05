@@ -4,33 +4,37 @@
 package main
 
 import (
+	"fmt"
 	"textbox"
 
 	"github.com/gligneul/eggroll"
 )
 
-// Redefine the types to make the example cleaner.
 type (
-	InputAppend textbox.InputAppend
-	InputClear  textbox.InputClear
 	State       textbox.State
+	InputClear  textbox.InputClear
+	InputAppend textbox.InputAppend
 )
 
-func clearHandler(env *eggroll.Env, state *State, _ *InputClear) error {
-	env.Logln("received input clear")
-	state.TextBox = ""
-	return nil
-}
+// @cut
 
-func appendHandler(env *eggroll.Env, state *State, input *InputAppend) error {
-	env.Logf("received input append with '%v'\n", input.Value)
-	state.TextBox += input.Value
+func (s *State) Advance(env *eggroll.Env, input any) error {
+	switch input := input.(type) {
+	case *InputClear:
+		env.Logln("received input clear")
+		s.TextBox = ""
+	case *InputAppend:
+		env.Logf("received input append with '%v'\n", input.Value)
+		s.TextBox += input.Value
+	default:
+		return fmt.Errorf("invalid input")
+	}
 	return nil
 }
 
 func main() {
-	contract := eggroll.NewContract[State]()
-	eggroll.Register(contract, clearHandler)
-	eggroll.Register(contract, appendHandler)
+	contract := eggroll.NewContract(&State{})
+	contract.AddDecoder(eggroll.NewGenericDecoder[InputClear]())
+	contract.AddDecoder(eggroll.NewGenericDecoder[InputAppend]())
 	contract.Roll()
 }
