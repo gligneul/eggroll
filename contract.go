@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/rollups"
+	"github.com/gligneul/eggroll/wallets"
 )
 
 // Configuration for the Contract.
@@ -97,22 +98,38 @@ func (c *Contract) AddDecoder(decoder Decoder) {
 // Start to advance the rollups state.
 // This function never returns and exits if there is an error.
 func (c *Contract) Roll() {
-	env := &Env{rollups: c.rollups}
 	status := rollups.FinishStatusAccept
+	env := &Env{rollups: c.rollups}
+
+	// TODO set dapp address in env
+
+	env.wallets = wallets.NewWallets()
+	dispatcher := env.wallets.MakeDispatcher()
 
 	for {
 		var (
-			payload []byte
-			err     error
+			payload    []byte
+			inputBytes []byte
+			err        error
 		)
 		payload, env.metadata, err = c.rollups.Finish(status)
 		if err != nil {
 			log.Fatalf("failed to send finish: %v\n", err)
 		}
 
+		env.deposit, inputBytes, err = dispatcher.Dispatch(env.metadata.Sender, payload)
+		if err != nil {
+			env.Logf("malformed portal input: %v\n", err)
+			status = rollups.FinishStatusReject
+			continue
+		}
+		if inputBytes == nil {
+			inputBytes = payload
+		}
+
 		input := c.decode(env, payload)
 		if err = c.state.Advance(env, input); err != nil {
-			env.Logf("rejecting input: %v\n", err)
+			env.Logf("rejecting: %v\n", err)
 			status = rollups.FinishStatusReject
 			continue
 		}
