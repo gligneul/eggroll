@@ -12,11 +12,32 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Key that identifies the input type.
-type inputKey [4]byte
+// Generic decoder for Inputs of type I.
+type GenericDecoder[I any] struct {
+	inputType reflect.Type
+}
+
+// Create a new generic decoder.
+func NewGenericDecoder[I any]() *GenericDecoder[I] {
+	return &GenericDecoder[I]{
+		inputType: reflect.TypeOf((*I)(nil)).Elem(),
+	}
+}
+
+func (d *GenericDecoder[I]) InputKey() InputKey {
+	return genericInputKey(d.inputType)
+}
+
+func (d *GenericDecoder[I]) Decode(inputBytes []byte) (any, error) {
+	input := reflect.New(d.inputType).Interface()
+	if err := json.Unmarshal(inputBytes, input); err != nil {
+		return nil, fmt.Errorf("failed to decode input: %v", err)
+	}
+	return input, nil
+}
 
 // Encode the input into bytes.
-func EncodeInput(input any) ([]byte, error) {
+func EncodeGenericInput(input any) ([]byte, error) {
 	inputType := reflect.TypeOf(input)
 	key := genericInputKey(inputType)
 	inputBytes, err := json.Marshal(input)
@@ -26,46 +47,14 @@ func EncodeInput(input any) ([]byte, error) {
 	return append(key[:], inputBytes...), nil
 }
 
-// Split input payload into key and bytes.
-func splitInput(payload []byte) (inputKey, []byte, error) {
-	if len(payload) < 4 {
-		msg := "invalid payload len (%v bytes)"
-		return inputKey{}, nil, fmt.Errorf(msg, len(payload))
-	}
-	return inputKey(payload[:4]), payload[4:], nil
-}
-
-// Function that decodes the input given the bytes.
-type inputDecoder[I any] func([]byte) (*I, error)
-
-// Get the input key and the decoder function.
-func getInputKeyDecoder[I any]() (inputKey, inputDecoder[I]) {
-	inputType := reflect.TypeOf((*I)(nil))
-	key := genericInputKey(inputType)
-	decoder := func(inputBytes []byte) (*I, error) {
-		input := reflect.New(inputType.Elem()).Interface()
-		if err := json.Unmarshal(inputBytes, input); err != nil {
-			return nil, fmt.Errorf("failed to decode input: %v", err)
-		}
-		return input.(*I), nil
-	}
-	return key, inputDecoder[I](decoder)
-}
-
-// Get the key for a generic input.
-func genericInputKey(inputType reflect.Type) inputKey {
-	// Check if inputType is pointer to struct
-	if inputType.Kind() != reflect.Ptr {
-		log.Panicf("input type must be a pointer; is %v\n", inputType)
-	}
-	inputType = inputType.Elem()
+// Use the first 4 bytes of the keccak of the Input type as the handler key.
+// This is inspired by the Ethereum ABI encoding.
+// See: https://docs.soliditylang.org/en/latest/abi-spec.html
+func genericInputKey(inputType reflect.Type) InputKey {
+	// Check if inputType is struct
 	if inputType.Kind() != reflect.Struct {
-		log.Panicf("input type must be a struct pointer; is *%v\n", inputType)
+		log.Panicf("input type must be a struct; is %v\n", inputType)
 	}
-
-	// Use the first 4 bytes of the keccak of the Input type as the handler key.
-	// We do this to be compatible with inputs that are ABI encoded.
-	// See: https://docs.soliditylang.org/en/latest/abi-spec.html
 	hash := crypto.Keccak256Hash([]byte(inputType.Name()))
-	return inputKey(hash[:4])
+	return InputKey(hash[:4])
 }
