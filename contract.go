@@ -30,23 +30,6 @@ func (c *ContractConfig) Load() {
 	c.RollupsEndpoint = loadVar("ROLLUPS_HTTP_ENDPOINT", defaultEndpoint)
 }
 
-// Interface with the Rollups API.
-// We don't expose this API because calling it directly will break EggRoll assumptions.
-type rollupsAPI interface {
-	SendVoucher(destination common.Address, payload []byte) error
-	SendNotice(payload []byte) error
-	SendReport(payload []byte) error
-	Finish(status rollups.FinishStatus) ([]byte, *rollups.Metadata, error)
-}
-
-// State of the rollups contract.
-type State interface {
-
-	// Advance the state with the given input.
-	// If the call returns an error, reject the input.
-	Advance(env *Env, input any) error
-}
-
 // Key that identifies the input type.
 type InputKey [4]byte
 
@@ -60,51 +43,45 @@ type Decoder interface {
 	Decode(inputBytes []byte) (any, error)
 }
 
-// Receive inputs and advances the rollups state.
-type Contract struct {
-	rollups  rollupsAPI
-	state    State
-	decoders map[InputKey]Decoder
+// State of the rollups contract.
+type State interface {
+
+	// Advance the state with the given input.
+	// If the call returns an error, reject the input.
+	Advance(env *Env, input any) error
 }
 
-// Create the Contract loading the config from environment variables.
-func NewContract(state State) *Contract {
+// Contract that advances the dapp state.
+type Contract interface {
+
+	// Get the decoders required by the contract.
+	Decoders() []Decoder
+
+	// Advance the state with the given input.
+	// If the call returns an error, reject the input.
+	Advance(env *Env, input any) error
+}
+
+// Start the Cartesi Rollups for the contract.
+// This function doesn't return and exits if there is an error.
+func Roll(contract Contract) {
 	var config ContractConfig
 	config.Load()
-	return NewContractFromConfig(state, config)
+	RollWithConfig(contract, config)
 }
 
-// Create the Contract with a custom config.
-func NewContractFromConfig(state State, config ContractConfig) *Contract {
-	rollups := rollups.NewRollupsHTTP(config.RollupsEndpoint)
-	contract := &Contract{
-		rollups,
-		state,
-		make(map[InputKey]Decoder),
-	}
-	return contract
-}
-
-// Add a decoder to the contract.
-func (c *Contract) AddDecoder(decoder Decoder) {
-	key := decoder.InputKey()
-	_, ok := c.decoders[key]
-	if ok {
-		log.Panicf("decoder conflict: %v\n", common.Bytes2Hex(key[:]))
-	}
-	c.decoders[key] = decoder
-}
-
-// Start to advance the rollups state.
-// This function never returns and exits if there is an error.
-func (c *Contract) Roll() {
+// Start the Cartesi Rollups for the contract with the given config.
+// This function doesn't return and exits if there is an error.
+func RollWithConfig(contract Contract, config ContractConfig) {
+	rollupsAPI := rollups.NewRollupsHTTP(config.RollupsEndpoint)
+	decoders := makeDecoderMap(contract.Decoders())
 	status := rollups.FinishStatusAccept
-	env := &Env{rollups: c.rollups}
-
-	// TODO set dapp address in env
-
-	env.wallets = wallets.NewWallets()
-	dispatcher := env.wallets.MakeDispatcher()
+	wallets := wallets.NewWallets()
+	dispatcher := wallets.MakeDispatcher()
+	env := &Env{
+		wallets: wallets,
+		rollups: rollupsAPI,
+	}
 
 	for {
 		var (
@@ -112,7 +89,7 @@ func (c *Contract) Roll() {
 			inputBytes []byte
 			err        error
 		)
-		payload, env.metadata, err = c.rollups.Finish(status)
+		payload, env.metadata, err = rollupsAPI.Finish(status)
 		if err != nil {
 			log.Fatalf("failed to send finish: %v\n", err)
 		}
@@ -127,32 +104,47 @@ func (c *Contract) Roll() {
 			inputBytes = payload
 		}
 
-		input := c.decode(env, payload)
-		if err = c.state.Advance(env, input); err != nil {
+		input := decodeInput(decoders, env, payload)
+		if err = contract.Advance(env, input); err != nil {
 			env.Logf("rejecting: %v\n", err)
 			status = rollups.FinishStatusReject
 			continue
 		}
 
-		stateSnapshot, err := json.Marshal(&c.state)
+		stateSnapshot, err := json.Marshal(contract)
 		if err != nil {
 			log.Fatalf("failed to create state snapshot: %v\n", err)
 		}
-		if err = c.rollups.SendNotice(stateSnapshot); err != nil {
+		if err = rollupsAPI.SendNotice(stateSnapshot); err != nil {
 			log.Fatalf("failed to send notice: %v\n", err)
 		}
 		status = rollups.FinishStatusAccept
 	}
 }
 
+// Map the input key to the respective decoder.
+func makeDecoderMap(decoders []Decoder) map[InputKey]Decoder {
+	decodersMap := make(map[InputKey]Decoder)
+	for _, decoder := range decoders {
+		key := decoder.InputKey()
+		_, ok := decodersMap[key]
+		if ok {
+			// Bug in the application configuration, so it is reasonable to panic
+			log.Panicf("decoder conflict: %v\n", common.Bytes2Hex(key[:]))
+		}
+		decodersMap[key] = decoder
+	}
+	return decodersMap
+}
+
 // Try to decode the input, if it fails, return the original payload.
-func (c *Contract) decode(env *Env, payload []byte) any {
+func decodeInput(decoders map[InputKey]Decoder, env *Env, payload []byte) any {
 	if len(payload) < 4 {
 		return payload
 	}
 	key := InputKey(payload[:4])
 	inputBytes := payload[4:]
-	decoder, ok := c.decoders[key]
+	decoder, ok := decoders[key]
 	if !ok {
 		return payload
 	}
