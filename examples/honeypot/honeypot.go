@@ -38,7 +38,7 @@ func (c *Contract) Advance(env *eggroll.Env, input any) error {
 	}
 
 	if _, ok := input.(*Withdraw); !ok {
-		return fmt.Errorf("ignoring input: %T", input)
+		return fmt.Errorf("ignoring input: %v", input)
 	}
 
 	for _, src := range env.EtherAddresses() {
@@ -47,11 +47,17 @@ func (c *Contract) Advance(env *eggroll.Env, input any) error {
 			env.EtherTransfer(src, owner, &balance)
 		}
 	}
+
 	balance := env.EtherBalanceOf(owner)
 	if balance.IsZero() {
 		return fmt.Errorf("nothing to withdraw")
 	}
-	env.EtherWithdraw(owner, &balance)
+
+	err := env.EtherWithdraw(owner, &balance)
+	if err != nil {
+		return err
+	}
 	env.Logf("withdraw %v\n", balance.ToBig().String())
+
 	return nil
 }
