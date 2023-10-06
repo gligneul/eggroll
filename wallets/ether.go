@@ -66,6 +66,10 @@ func (w *EtherWallet) BalanceOf(address common.Address) uint256.Int {
 // Transfer the given amount of funds from source to destination.
 // Return error if the source doesn't have enough funds.
 func (w *EtherWallet) Transfer(src common.Address, dst common.Address, value *uint256.Int) error {
+	if src == dst {
+		return fmt.Errorf("can't transfer to self")
+	}
+
 	srcBalance := w.balance[src]
 	newSrcBalance, underflow := new(uint256.Int).SubOverflow(&srcBalance, value)
 	if underflow {

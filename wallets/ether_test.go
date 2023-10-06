@@ -87,6 +87,19 @@ func TestZeroEtherTransfer(t *testing.T) {
 	}
 }
 
+func TestSelfEtherTransfer(t *testing.T) {
+	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
+	wallet := NewEtherWallet()
+	wallet.setBalance(src, uint256.NewInt(50))
+	err := wallet.Transfer(src, src, uint256.NewInt(50))
+	if err == nil {
+		t.Fatalf("expected error; got nil")
+	}
+	if err.Error() != "can't transfer to self" {
+		t.Fatalf("wrong error message")
+	}
+}
+
 func TestInsuficientFundsEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	dst := common.HexToAddress("0xfefefefefefefefefefefefefefefefefefefefe")
