@@ -14,19 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type CompletionStatus string
-
-const (
-	CompletionStatusUnprocessed                CompletionStatus = "UNPROCESSED"
-	CompletionStatusAccepted                   CompletionStatus = "ACCEPTED"
-	CompletionStatusRejected                   CompletionStatus = "REJECTED"
-	CompletionStatusException                  CompletionStatus = "EXCEPTION"
-	CompletionStatusMachineHalted              CompletionStatus = "MACHINE_HALTED"
-	CompletionStatusCycleLimitExceeded         CompletionStatus = "CYCLE_LIMIT_EXCEEDED"
-	CompletionStatusTimeLimitExceeded          CompletionStatus = "TIME_LIMIT_EXCEEDED"
-	CompletionStatusPayloadLengthLimitExceeded CompletionStatus = "PAYLOAD_LENGTH_LIMIT_EXCEEDED"
-)
-
 // Rollups input from the Reader API.
 type Input struct {
 	Index       int
@@ -93,13 +80,8 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 	_ = `# @genqlient
 	query getInput($inputIndex: Int!) {
 	  input(index: $inputIndex) {
+	    status
 	    blockNumber
-	    reports {
-	      totalCount
-	    }
-	    notices {
-	      totalCount
-	    }
 	  }
 	}`
 
@@ -113,18 +95,9 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 		return nil, fmt.Errorf("failed to decode block number: %v", err)
 	}
 
-	status := CompletionStatusUnprocessed
-	if resp.Input.Reports.TotalCount != 0 {
-		if resp.Input.Notices.TotalCount != 0 {
-			status = CompletionStatusAccepted
-		} else {
-			status = CompletionStatusRejected
-		}
-	}
-
 	input := &Input{
 		Index:       index,
-		Status:      status,
+		Status:      resp.Input.Status,
 		BlockNumber: blockNumber,
 	}
 	return input, nil

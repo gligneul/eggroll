@@ -8,6 +8,19 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type CompletionStatus string
+
+const (
+	CompletionStatusUnprocessed                CompletionStatus = "UNPROCESSED"
+	CompletionStatusAccepted                   CompletionStatus = "ACCEPTED"
+	CompletionStatusRejected                   CompletionStatus = "REJECTED"
+	CompletionStatusException                  CompletionStatus = "EXCEPTION"
+	CompletionStatusMachineHalted              CompletionStatus = "MACHINE_HALTED"
+	CompletionStatusCycleLimitExceeded         CompletionStatus = "CYCLE_LIMIT_EXCEEDED"
+	CompletionStatusTimeLimitExceeded          CompletionStatus = "TIME_LIMIT_EXCEEDED"
+	CompletionStatusPayloadLengthLimitExceeded CompletionStatus = "PAYLOAD_LENGTH_LIMIT_EXCEEDED"
+)
+
 // __getInputInput is used internally by genqlient
 type __getInputInput struct {
 	InputIndex int `json:"inputIndex"`
@@ -53,46 +66,17 @@ func (v *__getReportInput) GetReportIndex() int { return v.ReportIndex }
 //
 // Request submitted to the application to advance its state
 type getInputInput struct {
+	// Status of the input
+	Status CompletionStatus `json:"status"`
 	// Number of the base layer block in which the input was recorded
 	BlockNumber string `json:"blockNumber"`
-	// Get reports from this particular input with support for pagination
-	Reports getInputInputReportsReportConnection `json:"reports"`
-	// Get notices from this particular input with support for pagination
-	Notices getInputInputNoticesNoticeConnection `json:"notices"`
 }
+
+// GetStatus returns getInputInput.Status, and is useful for accessing the field via an interface.
+func (v *getInputInput) GetStatus() CompletionStatus { return v.Status }
 
 // GetBlockNumber returns getInputInput.BlockNumber, and is useful for accessing the field via an interface.
 func (v *getInputInput) GetBlockNumber() string { return v.BlockNumber }
-
-// GetReports returns getInputInput.Reports, and is useful for accessing the field via an interface.
-func (v *getInputInput) GetReports() getInputInputReportsReportConnection { return v.Reports }
-
-// GetNotices returns getInputInput.Notices, and is useful for accessing the field via an interface.
-func (v *getInputInput) GetNotices() getInputInputNoticesNoticeConnection { return v.Notices }
-
-// getInputInputNoticesNoticeConnection includes the requested fields of the GraphQL type NoticeConnection.
-// The GraphQL type's documentation follows.
-//
-// Pagination result
-type getInputInputNoticesNoticeConnection struct {
-	// Total number of entries that match the query
-	TotalCount int `json:"totalCount"`
-}
-
-// GetTotalCount returns getInputInputNoticesNoticeConnection.TotalCount, and is useful for accessing the field via an interface.
-func (v *getInputInputNoticesNoticeConnection) GetTotalCount() int { return v.TotalCount }
-
-// getInputInputReportsReportConnection includes the requested fields of the GraphQL type ReportConnection.
-// The GraphQL type's documentation follows.
-//
-// Pagination result
-type getInputInputReportsReportConnection struct {
-	// Total number of entries that match the query
-	TotalCount int `json:"totalCount"`
-}
-
-// GetTotalCount returns getInputInputReportsReportConnection.TotalCount, and is useful for accessing the field via an interface.
-func (v *getInputInputReportsReportConnection) GetTotalCount() int { return v.TotalCount }
 
 // getInputResponse is returned by getInput on success.
 type getInputResponse struct {
@@ -274,13 +258,8 @@ func (v *getReportResponse) GetReport() getReportReport { return v.Report }
 const getInput_Operation = `
 query getInput ($inputIndex: Int!) {
 	input(index: $inputIndex) {
+		status
 		blockNumber
-		reports {
-			totalCount
-		}
-		notices {
-			totalCount
-		}
 	}
 }
 `
