@@ -12,12 +12,6 @@ import (
 	"github.com/gligneul/eggroll"
 )
 
-type (
-	InputAppend textbox.InputAppend
-	InputClear  textbox.InputClear
-	State       textbox.State
-)
-
 func Check(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -36,9 +30,9 @@ func main() {
 	client := eggroll.NewClient()
 
 	inputs := []any{
-		InputClear{},
-		InputAppend{Value: "egg"},
-		InputAppend{Value: "roll"},
+		textbox.Clear{},
+		textbox.Append{Value: "egg"},
+		textbox.Append{Value: "roll"},
 	}
 	for _, input := range inputs {
 		log.Printf("Sending input %#v\n", input)
@@ -49,9 +43,9 @@ func main() {
 	Check(client.WaitFor(ctx, 2))
 
 	Check(client.Sync(ctx))
-	var state State
-	Check(client.ReadState(&state))
-	log.Printf("Text box: '%v'\n", state.TextBox)
+	var contract textbox.Contract
+	Check(client.ReadState(&contract))
+	log.Printf("Text box: '%v'\n", contract.TextBox)
 
 	logs := Must(client.Logs(ctx))
 	log.Println("Logs:")
