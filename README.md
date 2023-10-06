@@ -12,7 +12,7 @@ EggRoll provides abstractions for both sides of the DApp.
 ## Requirements
 
 EggRoll is built on top of the [Cartesi Rollups](https://docs.cartesi.io/cartesi-rollups/) infrastructure version 1.0.
-To use EggRoll, you also need [sunodo](https://github.com/sunodo/sunodo/) version 0.8.
+To use EggRoll, you also need [sunodo](https://github.com/sunodo/sunodo/) version 0.9.
 
 ## Quick Look
 
