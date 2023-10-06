@@ -25,15 +25,25 @@ type rollupsAPI interface {
 // Env allows the DApp contract to interact with the Rollups API.
 type Env struct {
 	rollups     rollupsAPI
-	wallets     *wallets.Wallets
-	dappAddress common.Address
-	metadata    *rollups.Metadata
-	deposit     wallets.Deposit
+	dappAddress *common.Address
+	etherWallet *wallets.EtherWallet
+
+	// Reset for each input.
+	metadata *rollups.Metadata
+
+	// Reset for each input.
+	deposit wallets.Deposit
 }
 
 // Get the Metadata for the current input.
 func (e *Env) Metadata() *rollups.Metadata {
 	return e.metadata
+}
+
+// Get the DApp address.
+// The address is initialized after the contract receives an input from the AddressRelay contract.
+func (e *Env) DAppAddress() *common.Address {
+	return e.dappAddress
 }
 
 // Get the original sender for the current input.
@@ -52,28 +62,31 @@ func (e *Env) Deposit() wallets.Deposit {
 
 // Return the list of addresses that have assets.
 func (e *Env) EtherAddresses() []common.Address {
-	return e.wallets.Ether.Addresses()
+	return e.etherWallet.Addresses()
 }
 
 // Return the balance of the given address.
 func (e *Env) EtherBalanceOf(address common.Address) uint256.Int {
-	return e.wallets.Ether.BalanceOf(address)
+	return e.etherWallet.BalanceOf(address)
 }
 
 // Transfer the given amount of funds from source to destination.
 // Return error if the source doesn't have enough funds.
 func (e *Env) EtherTransfer(src common.Address, dst common.Address, value *uint256.Int) error {
-	return e.wallets.Ether.Transfer(src, dst, value)
+	return e.etherWallet.Transfer(src, dst, value)
 }
 
 // Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
 // Return error if the address doesn't have enough assets.
 func (e *Env) EtherWithdraw(address common.Address, value *uint256.Int) error {
-	voucher, err := e.wallets.Ether.Withdraw(address, value)
+	if e.dappAddress == nil {
+		return fmt.Errorf("need dapp address to withdraw")
+	}
+	voucher, err := e.etherWallet.Withdraw(address, value)
 	if err != nil {
 		return err
 	}
-	e.Voucher(e.dappAddress, voucher)
+	e.Voucher(*e.dappAddress, voucher)
 	return nil
 }
 

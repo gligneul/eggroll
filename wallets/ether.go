@@ -121,7 +121,8 @@ func (w *EtherWallet) Withdraw(address common.Address, value *uint256.Int) ([]by
 	return EncodeEtherWithdraw(address, value), nil
 }
 
-func (w *EtherWallet) deposit(payload []byte) (Deposit, []byte, error) {
+// Handle a deposit from the Ether portal.
+func (w *EtherWallet) Deposit(payload []byte) (Deposit, []byte, error) {
 	if len(payload) < 20+32 {
 		return nil, nil, fmt.Errorf("invalid eth deposit size; got %v", len(payload))
 	}
@@ -140,8 +141,4 @@ func (w *EtherWallet) deposit(payload []byte) (Deposit, []byte, error) {
 	w.setBalance(deposit.Sender, newBalance)
 
 	return deposit, input, nil
-}
-
-func (_ *EtherWallet) portalAddress() common.Address {
-	return common.HexToAddress("0xffdbe43d4c855bf7e0f105c400a50857f53ab044")
 }

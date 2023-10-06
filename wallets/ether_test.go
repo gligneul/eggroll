@@ -173,7 +173,7 @@ func TestValidWithdraw(t *testing.T) {
 func TestValidEtherDeposit(t *testing.T) {
 	wallet := NewEtherWallet()
 	payload := common.Hex2Bytes("fafafafafafafafafafafafafafafafafafafafa0000000000000000000000000000000000000000000000000000000000000064deadbeef")
-	deposit, input, err := wallet.deposit(payload)
+	deposit, input, err := wallet.Deposit(payload)
 
 	if err != nil {
 		t.Fatalf("expected nil err; got %v", err)
@@ -207,7 +207,7 @@ func TestValidEtherDeposit(t *testing.T) {
 func TestValidDepositWithEmptyInput(t *testing.T) {
 	wallet := NewEtherWallet()
 	payload := common.Hex2Bytes("fafafafafafafafafafafafafafafafafafafafa0000000000000000000000000000000000000000000000000000000000000064")
-	deposit, input, err := wallet.deposit(payload)
+	deposit, input, err := wallet.Deposit(payload)
 
 	if err != nil {
 		t.Fatalf("expected nil err; got %v", err)
@@ -225,14 +225,14 @@ func TestOverflowDeposit(t *testing.T) {
 
 	// deposit int max
 	payload := common.Hex2Bytes("fafafafafafafafafafafafafafafafafafafafaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-	deposit, input, err := wallet.deposit(payload)
+	deposit, input, err := wallet.Deposit(payload)
 	if deposit == nil || input == nil || err != nil {
 		t.Fatalf("expected deposit, input, nil; got %v, %v, %v", deposit, input, err)
 	}
 
 	// deposit more ether
 	payload = common.Hex2Bytes("fafafafafafafafafafafafafafafafafafafafa0000000000000000000000000000000000000000000000000000000000001000")
-	deposit, input, err = wallet.deposit(payload)
+	deposit, input, err = wallet.Deposit(payload)
 	if deposit == nil || input == nil || err != nil {
 		t.Fatalf("expected deposit, input, nil; got %v, %v, %v", deposit, input, err)
 	}
@@ -248,7 +248,7 @@ func TestOverflowDeposit(t *testing.T) {
 func TestMalformedDeposit(t *testing.T) {
 	wallet := NewEtherWallet()
 	payload := common.Hex2Bytes("fafafa")
-	deposit, input, err := wallet.deposit(payload)
+	deposit, input, err := wallet.Deposit(payload)
 
 	if err == nil {
 		t.Fatal("expected err; got nil")

@@ -9,8 +9,63 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
+
+// Input bytes.
+type RawInput []byte
+
+func (i RawInput) String() string {
+	return common.Bytes2Hex(i)
+}
+
+// Key that identifies the input type.
+type InputKey [4]byte
+
+// Decodes inputs from bytes to Go types.
+type Decoder interface {
+
+	// Get the input key.
+	InputKey() InputKey
+
+	// Try to decode the given input.
+	Decode(inputBytes []byte) (any, error)
+}
+
+// Map the input key to the respective decoder.
+func makeDecoderMap(decoders []Decoder) map[InputKey]Decoder {
+	decoderMap := make(map[InputKey]Decoder)
+	for _, decoder := range decoders {
+		key := decoder.InputKey()
+		_, ok := decoderMap[key]
+		if ok {
+			// Bug in the application configuration, so it is reasonable to panic
+			log.Panicf("decoder conflict: %v\n", common.Bytes2Hex(key[:]))
+		}
+		decoderMap[key] = decoder
+	}
+	return decoderMap
+}
+
+// Try to decode the input, if it fails, return the original payload.
+// If the decoder fails return an error.
+func decodeInput(decoderMap map[InputKey]Decoder, payload []byte) (any, error) {
+	if len(payload) < 4 {
+		return RawInput(payload), nil
+	}
+	key := InputKey(payload[:4])
+	inputBytes := payload[4:]
+	decoder, ok := decoderMap[key]
+	if !ok {
+		return RawInput(payload), nil
+	}
+	input, err := decoder.Decode(inputBytes)
+	if err != nil {
+		return nil, err
+	}
+	return input, nil
+}
 
 // Generic decoder for Inputs of type I.
 type GenericDecoder[I any] struct {
