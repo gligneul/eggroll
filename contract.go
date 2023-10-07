@@ -43,6 +43,13 @@ type Contract interface {
 	Advance(env *Env, input any) error
 }
 
+// DefaultContract provides a default implementation for optional contract methods.
+type DefaultContract struct{}
+
+func (_ *DefaultContract) Decoders() []Decoder {
+	return nil
+}
+
 // Start the Cartesi Rollups for the contract.
 // This function doesn't return and exits if there is an error.
 func Roll(contract Contract) {
