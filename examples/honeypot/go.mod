@@ -4,7 +4,7 @@ go 1.21.1
 
 require (
 	github.com/ethereum/go-ethereum v1.13.2
-	github.com/gligneul/eggroll v0.0.0-20231007171236-362c725374f3
+	github.com/gligneul/eggroll v0.0.0-20231007210009-bd944e56e429
 )
 
 require (
