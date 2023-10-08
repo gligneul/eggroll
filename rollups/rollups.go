@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"runtime"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -55,7 +57,16 @@ type RollupsHTTP struct {
 }
 
 // Create a new Rollups HTTP client.
-func NewRollupsHTTP(endpoint string) *RollupsHTTP {
+// Load the ROLLUP_HTTP_SERVER_URL from an environment variable.
+func NewRollupsHTTP() *RollupsHTTP {
+	endpoint := os.Getenv("ROLLUP_HTTP_SERVER_URL")
+	if endpoint == "" {
+		if runtime.GOARCH == "riscv64" {
+			endpoint = "http://127.0.0.1:5004"
+		} else {
+			endpoint = "http://localhost:8080/host-runner"
+		}
+	}
 	return &RollupsHTTP{endpoint}
 }
 

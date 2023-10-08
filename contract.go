@@ -5,9 +5,7 @@
 package eggroll
 
 import (
-	"encoding/json"
 	"fmt"
-	"runtime"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/blockchain"
@@ -15,31 +13,26 @@ import (
 	"github.com/gligneul/eggroll/wallets"
 )
 
-// Configuration for the Contract.
-type ContractConfig struct {
-	RollupsEndpoint string
-}
-
-// Load the config from environment variables.
-func (c *ContractConfig) Load() {
-	var defaultEndpoint string
-	if runtime.GOARCH == "riscv64" {
-		defaultEndpoint = "http://127.0.0.1:5004"
-	} else {
-		defaultEndpoint = "http://localhost:8080/host-runner"
-	}
-	c.RollupsEndpoint = loadVar("ROLLUPS_HTTP_ENDPOINT", defaultEndpoint)
-}
-
 // Contract that advances the dapp state.
 type Contract interface {
 
 	// Get the decoders required by the contract.
 	Decoders() []Decoder
 
-	// Advance the state with the given input.
-	// If the call returns an error, reject the input.
-	Advance(env *Env, input any) error
+	// Advance the state with the given input, returning the advance result.
+	// EggRoll uses the contract decoders to decode the incoming input.
+	// If the input doesn't match any decoder, the type of the input will be []byte.
+	// The advance result is limited to 1000 Kb.
+	// If the call returns an error, EggRoll rejects the input.
+	Advance(env *Env, input any) ([]byte, error)
+
+	// Inspect the state with the given input, returning the inspect result.
+	// EggRoll uses the contract decoders to decode the incoming input.
+	// If the input doesn't match any decoder, the type of the input will be []byte.
+	// The inspect result is limited to 1000 Kb.
+	// The inspect call mustn't change the state of the application.
+	// If the call returns an error, EggRoll rejects the input.
+	Inspect(env *Env, input any) ([]byte, error)
 }
 
 // DefaultContract provides a default implementation for optional contract methods.
@@ -49,19 +42,16 @@ func (_ *DefaultContract) Decoders() []Decoder {
 	return nil
 }
 
+func (_ DefaultContract) Inspect(env *Env, input any) ([]byte, error) {
+	return nil, fmt.Errorf("inspect not supported")
+}
+
 // Start the Cartesi Rollups for the contract.
 // This function doesn't return and exits if there is an error.
 func Roll(contract Contract) {
-	var config ContractConfig
-	config.Load()
-	RollWithConfig(contract, config)
-}
-
-// Start the Cartesi Rollups for the contract with the given config.
-// This function doesn't return and exits if there is an error.
-func RollWithConfig(contract Contract, config ContractConfig) {
-	rollupsAPI := rollups.NewRollupsHTTP(config.RollupsEndpoint)
-	env := newEnv(rollupsAPI)
+	rollupsAPI := rollups.NewRollupsHTTP()
+	reporter := newReporter(rollupsAPI)
+	env := newEnv(reporter, rollupsAPI)
 	decoderMap := makeDecoderMap(contract.Decoders())
 	walletMap := map[common.Address]wallets.Wallet{
 		blockchain.AddressEtherPortal: env.etherWallet,
@@ -75,11 +65,12 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 			env.Fatalf("failed to send finish: %v\n", err)
 		}
 
+		var result []byte
 		switch input := input.(type) {
 		case *rollups.AdvanceInput:
-			err = handleAdvance(env, contract, decoderMap, walletMap, input)
+			result, err = handleAdvance(env, contract, decoderMap, walletMap, input)
 		case *rollups.InspectInput:
-			err = fmt.Errorf("rejecting inspect")
+			err = fmt.Errorf("inspect")
 		default:
 			err = fmt.Errorf("invalid input type")
 		}
@@ -90,36 +81,34 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 			continue
 		}
 
-		stateSnapshot, err := json.Marshal(contract)
-		if err != nil {
-			env.Fatalf("failed to create state snapshot: %v\n", err)
-		}
-		env.Notice(stateSnapshot)
-
+		env.sendResult(result)
 		status = rollups.FinishStatusAccept
 	}
 }
 
-// Handle the advance request from the rollups API.
+// Handle the advance input from the rollups API.
 func handleAdvance(
 	env *Env,
 	contract Contract,
 	decoderMap map[InputKey]Decoder,
 	walletMap map[common.Address]wallets.Wallet,
 	input *rollups.AdvanceInput,
-) (err error) {
+) (
+	result []byte,
+	err error,
+) {
 	var deposit wallets.Deposit
 	var inputBytes []byte
 
 	if input.Metadata.Sender == blockchain.AddressDAppAddressRelay {
-		return handleDAppAddressRelay(env, input.Payload)
+		return nil, handleDAppAddressRelay(env, input.Payload)
 	}
 
 	wallet, ok := walletMap[input.Metadata.Sender]
 	if ok {
 		deposit, inputBytes, err = wallet.Deposit(input.Payload)
 		if err != nil {
-			return fmt.Errorf("malformed portal input: %v", err)
+			return nil, fmt.Errorf("malformed portal input: %v", err)
 		}
 	} else {
 		deposit = nil
@@ -128,15 +117,11 @@ func handleAdvance(
 
 	decodedInput, err := decodeInput(decoderMap, inputBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	env.setInputData(input.Metadata, deposit)
-	if err = contract.Advance(env, decodedInput); err != nil {
-		return err
-	}
-
-	return nil
+	return contract.Advance(env, decodedInput)
 }
 
 // Handle the input from the DAppAddressRelay.
@@ -148,4 +133,22 @@ func handleDAppAddressRelay(env *Env, payload []byte) error {
 	env.setDAppAddress(&address)
 	env.Logf("got dapp address: %v", address)
 	return nil
+}
+
+// Handle the inspect input from the rollups API.
+func handleInspect(
+	env *Env,
+	contract Contract,
+	decoderMap map[InputKey]Decoder,
+	input *rollups.InspectInput,
+) (
+	result []byte,
+	err error,
+) {
+	decodedInput, err := decodeInput(decoderMap, input.Payload)
+	if err != nil {
+		return nil, err
+	}
+	env.setInputData(nil, nil)
+	return contract.Inspect(env, decodedInput)
 }

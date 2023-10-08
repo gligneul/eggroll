@@ -7,11 +7,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gligneul/eggroll/blockchain"
 	"github.com/gligneul/eggroll/reader"
 )
+
+const envPrefix = "EGGROLL_"
+
+// Load variable from env.
+func loadVar(varName string, defaultValue string) string {
+	varName = envPrefix + varName
+	value := os.Getenv(varName)
+	if value == "" {
+		value = defaultValue
+	}
+	return value
+}
 
 // Configuration for the Client.
 type ClientConfig struct {
@@ -22,12 +35,12 @@ type ClientConfig struct {
 // Load the config from environment variables.
 func (c *ClientConfig) Load() {
 	c.GraphqlEndpoint = loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
-	c.ProviderEndpoint = loadVar("ETH_ENDPOINT", "http://localhost:8545")
+	c.ProviderEndpoint = loadVar("ETH_RPC_ENDPOINT", "http://localhost:8545")
 }
 
 // Read the rollups state off chain.
 // For more details, see the eggroll/reader package.
-type ReaderAPI interface {
+type readerAPI interface {
 	Input(ctx context.Context, index int) (*reader.Input, error)
 	Notice(ctx context.Context, inputIndex int, noticeIndex int) (*reader.Notice, error)
 	Report(ctx context.Context, inputIndex int, reportIndex int) (*reader.Report, error)
@@ -41,7 +54,7 @@ type blockchainAPI interface {
 
 // The Client interacts with the DApp contract off chain.
 type Client struct {
-	Reader     ReaderAPI
+	reader     readerAPI
 	blockchain blockchainAPI
 	state      []byte
 	nextInput  int
@@ -57,7 +70,7 @@ func NewClient() *Client {
 // Create the Client with a custom config.
 func NewClientFromConfig(config ClientConfig) *Client {
 	return &Client{
-		Reader:     reader.NewGraphQLReader(config.GraphqlEndpoint),
+		reader:     reader.NewGraphQLReader(config.GraphqlEndpoint),
 		blockchain: blockchain.NewETHClient(config.ProviderEndpoint),
 		nextInput:  0,
 	}
@@ -76,7 +89,7 @@ func (c *Client) SendGeneric(ctx context.Context, input any) error {
 // Wait until the DApp back end processes a given input.
 func (c *Client) WaitFor(ctx context.Context, inputIndex int) error {
 	for {
-		input, err := c.Reader.Input(ctx, inputIndex)
+		input, err := c.reader.Input(ctx, inputIndex)
 		if err != nil {
 			if _, ok := err.(reader.NotFound); ok {
 				goto wait
@@ -94,7 +107,7 @@ func (c *Client) WaitFor(ctx context.Context, inputIndex int) error {
 // Sync to the latest Dapp state.
 func (c *Client) Sync(ctx context.Context) error {
 	for {
-		input, err := c.Reader.Input(ctx, c.nextInput)
+		input, err := c.reader.Input(ctx, c.nextInput)
 		if err != nil {
 			if _, ok := err.(reader.NotFound); ok {
 				break
@@ -105,7 +118,7 @@ func (c *Client) Sync(ctx context.Context) error {
 			break
 		}
 		if input.Status == reader.CompletionStatusAccepted {
-			notice, err := c.Reader.Notice(ctx, c.nextInput, 0)
+			notice, err := c.reader.Notice(ctx, c.nextInput, 0)
 			if err != nil {
 				return fmt.Errorf("failed to read notice: %v", err)
 			}
@@ -132,7 +145,7 @@ func (c *Client) Logs(ctx context.Context) ([]string, error) {
 
 // Get the last N entries of logs from the DApp.
 func (c *Client) LogsTail(ctx context.Context, n int) ([]string, error) {
-	page, err := c.Reader.LastReports(ctx, n)
+	page, err := c.reader.LastReports(ctx, n)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get reports: %v", err)
 	}

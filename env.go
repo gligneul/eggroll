@@ -17,12 +17,11 @@ import (
 type envRollupsAPI interface {
 	SendVoucher(destination common.Address, payload []byte) (int, error)
 	SendNotice(payload []byte) (int, error)
-	SendReport(payload []byte) error
 }
 
 // Env allows the DApp contract to interact with the Rollups API.
 type Env struct {
-	*EnvLogger
+	*Reporter
 
 	rollups     envRollupsAPI
 	etherWallet *wallets.EtherWallet
@@ -36,9 +35,9 @@ type Env struct {
 }
 
 // Create a new env.
-func newEnv(rollups envRollupsAPI) *Env {
+func newEnv(reporter *Reporter, rollups envRollupsAPI) *Env {
 	return &Env{
-		EnvLogger:   newEnvLogger(rollups),
+		Reporter:    reporter,
 		rollups:     rollups,
 		etherWallet: wallets.NewEtherWallet(),
 	}

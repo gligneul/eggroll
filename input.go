@@ -12,13 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Input bytes.
-type RawInput []byte
-
-func (i RawInput) String() string {
-	return common.Bytes2Hex(i)
-}
-
 // Key that identifies the input type.
 type InputKey [4]byte
 
@@ -51,13 +44,13 @@ func makeDecoderMap(decoders []Decoder) map[InputKey]Decoder {
 // If the decoder fails return an error.
 func decodeInput(decoderMap map[InputKey]Decoder, payload []byte) (any, error) {
 	if len(payload) < 4 {
-		return RawInput(payload), nil
+		return payload, nil
 	}
 	key := InputKey(payload[:4])
 	inputBytes := payload[4:]
 	decoder, ok := decoderMap[key]
 	if !ok {
-		return RawInput(payload), nil
+		return payload, nil
 	}
 	input, err := decoder.Decode(inputBytes)
 	if err != nil {
