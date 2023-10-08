@@ -4,7 +4,6 @@
 package eggroll
 
 import (
-	"log"
 	"os"
 )
 
@@ -16,6 +15,5 @@ func loadVar(varName string, defaultValue string) string {
 	if value == "" {
 		value = defaultValue
 	}
-	log.Printf("set %v=%v\n", varName, value)
 	return value
 }

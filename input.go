@@ -6,7 +6,6 @@ package eggroll
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,8 +39,8 @@ func makeDecoderMap(decoders []Decoder) map[InputKey]Decoder {
 		key := decoder.InputKey()
 		_, ok := decoderMap[key]
 		if ok {
-			// Bug in the application configuration, so it is reasonable to panic
-			log.Panicf("decoder conflict: %v\n", common.Bytes2Hex(key[:]))
+			// Bug in the contract configuration, so it is reasonable to panic
+			panic(fmt.Sprintf("two decoders with same key '%v'", common.Bytes2Hex(key[:])))
 		}
 		decoderMap[key] = decoder
 	}
@@ -108,7 +107,7 @@ func EncodeGenericInput(input any) ([]byte, error) {
 func genericInputKey(inputType reflect.Type) InputKey {
 	// Check if inputType is struct
 	if inputType.Kind() != reflect.Struct {
-		log.Panicf("input type must be a struct; is %v\n", inputType)
+		panic(fmt.Sprintf("input type must be a struct; is %v\n", inputType))
 	}
 	hash := crypto.Keccak256Hash([]byte(inputType.Name()))
 	return InputKey(hash[:4])

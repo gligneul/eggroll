@@ -7,7 +7,6 @@ package eggroll
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"runtime"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -61,11 +60,8 @@ func Roll(contract Contract) {
 // Start the Cartesi Rollups for the contract with the given config.
 // This function doesn't return and exits if there is an error.
 func RollWithConfig(contract Contract, config ContractConfig) {
-	env := &Env{
-		etherWallet: wallets.NewEtherWallet(),
-		rollups:     rollups.NewRollupsHTTP(config.RollupsEndpoint),
-	}
-
+	rollupsAPI := rollups.NewRollupsHTTP(config.RollupsEndpoint)
+	env := newEnv(rollupsAPI)
 	decoderMap := makeDecoderMap(contract.Decoders())
 	walletMap := map[common.Address]wallets.Wallet{
 		blockchain.AddressEtherPortal: env.etherWallet,
@@ -74,9 +70,9 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 	status := rollups.FinishStatusAccept
 
 	for {
-		payload, metadata, err := env.rollups.Finish(status)
+		payload, metadata, err := rollupsAPI.Finish(status)
 		if err != nil {
-			log.Fatalf("failed to send finish: %v\n", err)
+			env.Fatalf("failed to send finish: %v\n", err)
 		}
 
 		err = handleAdvance(env, contract, decoderMap, walletMap, payload, metadata)
@@ -88,10 +84,10 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 
 		stateSnapshot, err := json.Marshal(contract)
 		if err != nil {
-			log.Fatalf("failed to create state snapshot: %v\n", err)
+			env.Fatalf("failed to create state snapshot: %v\n", err)
 		}
-		if err = env.rollups.SendNotice(stateSnapshot); err != nil {
-			log.Fatalf("failed to send notice: %v\n", err)
+		if err = rollupsAPI.SendNotice(stateSnapshot); err != nil {
+			env.Fatalf("failed to send notice: %v\n", err)
 		}
 		status = rollups.FinishStatusAccept
 	}
