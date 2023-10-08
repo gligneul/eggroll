@@ -94,9 +94,8 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 		if err != nil {
 			env.Fatalf("failed to create state snapshot: %v\n", err)
 		}
-		if err = rollupsAPI.SendNotice(stateSnapshot); err != nil {
-			env.Fatalf("failed to send notice: %v\n", err)
-		}
+		env.Notice(stateSnapshot)
+
 		status = rollups.FinishStatusAccept
 	}
 }

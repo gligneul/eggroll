@@ -76,8 +76,8 @@ func (r *RollupsHTTP) sendPost(route string, data []byte) (*http.Response, error
 	return resp, nil
 }
 
-// Send a voucher to the Rollups API.
-func (r *RollupsHTTP) SendVoucher(destination common.Address, payload []byte) error {
+// Send a voucher to the Rollups API. Return the voucher index.
+func (r *RollupsHTTP) SendVoucher(destination common.Address, payload []byte) (int, error) {
 	request := struct {
 		Destination string `json:"destination"`
 		Payload     string `json:"payload"`
@@ -88,24 +88,24 @@ func (r *RollupsHTTP) SendVoucher(destination common.Address, payload []byte) er
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("failed to serialize request: %v", err)
+		return 0, fmt.Errorf("failed to serialize request: %v", err)
 	}
 
 	resp, err := r.sendPost("voucher", body)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
 
 	if err = checkStatusOk(resp); err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return parseOutputIndex(resp.Body)
 }
 
-// Send a notice to the Rollups API.
-func (r *RollupsHTTP) SendNotice(payload []byte) error {
+// Send a notice to the Rollups API. Return the notice index.
+func (r *RollupsHTTP) SendNotice(payload []byte) (int, error) {
 	request := struct {
 		Payload string `json:"payload"`
 	}{
@@ -114,20 +114,20 @@ func (r *RollupsHTTP) SendNotice(payload []byte) error {
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("failed to serialize request: %v", err)
+		return 0, fmt.Errorf("failed to serialize request: %v", err)
 	}
 
 	resp, err := r.sendPost("notice", body)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
 
 	if err = checkStatusOk(resp); err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return parseOutputIndex(resp.Body)
 }
 
 // Send a report to the Rollups API.
@@ -201,6 +201,16 @@ func (r *RollupsHTTP) Finish(status FinishStatus) (any, error) {
 	default:
 		return nil, fmt.Errorf("invalid request type: %v", finishResp.RequestType)
 	}
+}
+
+func parseOutputIndex(r io.Reader) (int, error) {
+	var outputResp struct {
+		Index int `json:"index"`
+	}
+	if err := json.NewDecoder(r).Decode(&outputResp); err != nil {
+		return 0, fmt.Errorf("failed to decode finish response: %v", err)
+	}
+	return outputResp.Index, nil
 }
 
 func parseAdvanceInput(data json.RawMessage) (any, error) {

@@ -15,8 +15,8 @@ import (
 // Interface with the Rollups API.
 // We don't expose this API because calling it directly will break EggRoll assumptions.
 type envRollupsAPI interface {
-	SendVoucher(destination common.Address, payload []byte) error
-	SendNotice(payload []byte) error
+	SendVoucher(destination common.Address, payload []byte) (int, error)
+	SendNotice(payload []byte) (int, error)
 	SendReport(payload []byte) error
 }
 
@@ -95,22 +95,33 @@ func (e *Env) EtherTransfer(src common.Address, dst common.Address, value *uint2
 }
 
 // Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
+// Return the voucher index.
 // Return error if the address doesn't have enough assets.
-func (e *Env) EtherWithdraw(address common.Address, value *uint256.Int) error {
+func (e *Env) EtherWithdraw(address common.Address, value *uint256.Int) (int, error) {
 	if e.dappAddress == nil {
-		return fmt.Errorf("need dapp address to withdraw")
+		return 0, fmt.Errorf("need dapp address to withdraw")
 	}
 	voucher, err := e.etherWallet.Withdraw(address, value)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	e.Voucher(*e.dappAddress, voucher)
-	return nil
+	return e.Voucher(*e.dappAddress, voucher), nil
 }
 
-// Send a voucher.
-func (e *Env) Voucher(destination common.Address, payload []byte) {
-	if err := e.rollups.SendVoucher(destination, payload); err != nil {
+// Send a voucher. Return the voucher's index.
+func (e *Env) Voucher(destination common.Address, payload []byte) int {
+	index, err := e.rollups.SendVoucher(destination, payload)
+	if err != nil {
 		e.Fatalf("failed to send voucher: %v", err)
 	}
+	return index
+}
+
+// Send a notice. Return the notice's index.
+func (e *Env) Notice(payload []byte) int {
+	index, err := e.rollups.SendNotice(payload)
+	if err != nil {
+		e.Fatalf("failed to send notice: %v", err)
+	}
+	return index
 }
