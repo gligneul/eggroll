@@ -18,7 +18,7 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
-        -*|--*)
+        -*)
             echo "Unknown option $1"
             exit 1
             ;;
@@ -29,13 +29,15 @@ done
 for example in ./examples/*; do
     (
         cd $example
-        if ! go test -v; then
-            exit 1
+
+        if [ "$clean" = "true" -a -d .sunodo ]; then
+            rm -r .sunodo
         fi
-        if [ "$clean" = "true" ]; then
-            if [ -d .sunodo ]; then
-                rm -r .sunodo
-            fi
+
+        go test -v || exit 1
+
+        if [ "$clean" = "true" -a -d .sunodo ]; then
+            rm -r .sunodo
         fi
-    )
+    ) || exit 1
 done
