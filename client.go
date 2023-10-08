@@ -5,8 +5,8 @@ package eggroll
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -15,6 +15,42 @@ import (
 )
 
 const envPrefix = "EGGROLL_"
+
+var logger *log.Logger
+
+func init() {
+	flags := log.LstdFlags | log.Lmsgprefix
+	logger = log.New(os.Stdout, "eggroll: ", flags)
+}
+
+// Result of an advance input.
+type AdvanceResult struct {
+	*reader.Input
+
+	// Result returned by the contract advance method.
+	Result []byte
+
+	// Logs generated during the advance method.
+	Logs []string
+}
+
+func newAdvanceResult(input *reader.Input) *AdvanceResult {
+	var result AdvanceResult
+	for _, report := range input.Reports {
+		tag, payload, err := decodeReport(report.Payload)
+		if err != nil {
+			logger.Printf("failed to decode report: %v", err)
+			continue
+		}
+		switch tag {
+		case reportTagResult:
+			result.Result = payload
+		case reportTagLog:
+			result.Logs = append(result.Logs, string(payload))
+		}
+	}
+	return &result
+}
 
 // Load variable from env.
 func loadVar(varName string, defaultValue string) string {
@@ -33,18 +69,17 @@ type ClientConfig struct {
 }
 
 // Load the config from environment variables.
-func (c *ClientConfig) Load() {
-	c.GraphqlEndpoint = loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql")
-	c.ProviderEndpoint = loadVar("ETH_RPC_ENDPOINT", "http://localhost:8545")
+func NewClientConfig() *ClientConfig {
+	return &ClientConfig{
+		GraphqlEndpoint:  loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql"),
+		ProviderEndpoint: loadVar("ETH_RPC_ENDPOINT", "http://localhost:8545"),
+	}
 }
 
 // Read the rollups state off chain.
 // For more details, see the eggroll/reader package.
 type readerAPI interface {
 	Input(ctx context.Context, index int) (*reader.Input, error)
-	Notice(ctx context.Context, inputIndex int, noticeIndex int) (*reader.Notice, error)
-	Report(ctx context.Context, inputIndex int, reportIndex int) (*reader.Report, error)
-	LastReports(ctx context.Context, last int) (*reader.Page[reader.Report], error)
 }
 
 // Communicate with the blockchain.
@@ -57,47 +92,56 @@ type Client struct {
 	reader     readerAPI
 	blockchain blockchainAPI
 	state      []byte
-	nextInput  int
 }
 
 // Create the Client loading the config from environment variables.
 func NewClient() *Client {
-	var config ClientConfig
-	config.Load()
-	return NewClientFromConfig(config)
+	return NewClientFromConfig(NewClientConfig())
 }
 
 // Create the Client with a custom config.
-func NewClientFromConfig(config ClientConfig) *Client {
+func NewClientFromConfig(config *ClientConfig) *Client {
 	return &Client{
 		reader:     reader.NewGraphQLReader(config.GraphqlEndpoint),
 		blockchain: blockchain.NewETHClient(config.ProviderEndpoint),
-		nextInput:  0,
 	}
 }
 
-// Send a generic inputs to the DApp contract.
-// Returns an slice with each input index.
+//
+// Send functions
+//
+
+// Send the input as bytes to the DApp contract.
+func (c *Client) SendBytes(ctx context.Context, inputBytes []byte) error {
+	return c.blockchain.SendInput(ctx, inputBytes)
+}
+
+// Send a generic input to the DApp contract.
 func (c *Client) SendGeneric(ctx context.Context, input any) error {
 	inputBytes, err := EncodeGenericInput(input)
 	if err != nil {
 		return err
 	}
-	return c.blockchain.SendInput(ctx, inputBytes)
+	return c.SendBytes(ctx, inputBytes)
 }
 
-// Wait until the DApp back end processes a given input.
-func (c *Client) WaitFor(ctx context.Context, inputIndex int) error {
+//
+// Reader functions
+//
+
+// Wait until the DApp contract processes a given input.
+// Returns the advance result of that input.
+func (c *Client) WaitFor(ctx context.Context, inputIndex int) (*AdvanceResult, error) {
 	for {
 		input, err := c.reader.Input(ctx, inputIndex)
 		if err != nil {
 			if _, ok := err.(reader.NotFound); ok {
 				goto wait
 			}
-			return fmt.Errorf("faild to read input: %v", err)
+			return nil, fmt.Errorf("faild to read input: %v", err)
 		}
 		if input.Status != reader.CompletionStatusUnprocessed {
-			return nil
+			return newAdvanceResult(input), nil
 		}
 	wait:
 		time.Sleep(time.Second)
@@ -105,55 +149,25 @@ func (c *Client) WaitFor(ctx context.Context, inputIndex int) error {
 }
 
 // Sync to the latest Dapp state.
-func (c *Client) Sync(ctx context.Context) error {
+// Return the updated slice of Advance results.
+func (c *Client) Sync(ctx context.Context, results []*AdvanceResult) ([]*AdvanceResult, error) {
+	inputIndex := 0
+	if len(results) != 0 {
+		inputIndex = results[len(results)-1].Index
+	}
 	for {
-		input, err := c.reader.Input(ctx, c.nextInput)
+		input, err := c.reader.Input(ctx, inputIndex)
 		if err != nil {
 			if _, ok := err.(reader.NotFound); ok {
 				break
 			}
-			return fmt.Errorf("failed to read input: %v", err)
+			return nil, fmt.Errorf("failed to read input: %v", err)
 		}
 		if input.Status == reader.CompletionStatusUnprocessed {
 			break
 		}
-		if input.Status == reader.CompletionStatusAccepted {
-			notice, err := c.reader.Notice(ctx, c.nextInput, 0)
-			if err != nil {
-				return fmt.Errorf("failed to read notice: %v", err)
-			}
-			c.state = notice.Payload
-		}
-		c.nextInput++
+		results = append(results, newAdvanceResult(input))
+		inputIndex++
 	}
-	return nil
-}
-
-// Get a copy of the current DApp state.
-func (c *Client) ReadState(state any) error {
-	err := json.Unmarshal(c.state, &state)
-	if err != nil {
-		return fmt.Errorf("failed to parse state: %v", err)
-	}
-	return nil
-}
-
-// Get the last 20 entries of log from the DApp.
-func (c *Client) Logs(ctx context.Context) ([]string, error) {
-	return c.LogsTail(ctx, 20)
-}
-
-// Get the last N entries of logs from the DApp.
-func (c *Client) LogsTail(ctx context.Context, n int) ([]string, error) {
-	page, err := c.reader.LastReports(ctx, n)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get reports: %v", err)
-	}
-
-	var logs []string
-	for _, report := range page.Nodes {
-		logs = append(logs, string(report.Payload))
-	}
-
-	return logs, nil
+	return results, nil
 }

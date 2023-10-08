@@ -9,40 +9,59 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-// Rollups input from the Reader API.
 type Input struct {
-	Index       int
-	Status      CompletionStatus
+	// Advance input index.
+	Index int
+
+	// Completion status of the Input.
+	Status CompletionStatus
+
+	// Payload of the input.
+	Payload []byte
+
+	// Input sender.
+	Sender common.Address
+
+	// Number of the block the input was mined.
 	BlockNumber int64
+
+	// Time of the block the input was mined.
+	BlockTimestamp time.Time
+
+	// Resulting vouchers of the input.
+	Vouchers []Voucher
+
+	// Resulting notices of the input.
+	Notices []Notice
+
+	// Resulting reports of the input.
+	Reports []Report
 }
 
-// Rollups notice from the Reader API.
+type Voucher struct {
+	InputIndex  int
+	OutputIndex int
+	Destination common.Address
+	Payload     []byte
+}
+
 type Notice struct {
 	InputIndex  int
-	NoticeIndex int
+	OutputIndex int
 	Payload     []byte
 }
 
-// Rollups report from the Reader API.
 type Report struct {
 	InputIndex  int
-	ReportIndex int
+	OutputIndex int
 	Payload     []byte
-}
-
-// Result of a paginated query.
-type Page[T any] struct {
-	Nodes           []T
-	TotalCount      int
-	StartCursor     string
-	EndCursor       string
-	HasNextPage     bool
-	HasPreviousPage bool
 }
 
 // Error when an object is not found.
@@ -81,7 +100,35 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 	query getInput($inputIndex: Int!) {
 	  input(index: $inputIndex) {
 	    status
+	    payload
+	    msgSender
+	    timestamp
 	    blockNumber
+	    vouchers {
+	      edges {
+		node {
+		  index
+		  destination
+		  payload
+		}
+	      }
+	    }
+	    notices {
+	      edges {
+		node {
+		  index
+		  payload
+		}
+	      }
+	    }
+	    reports {
+	      edges {
+		node {
+		  index
+		  payload
+		}
+	      }
+	    }
 	  }
 	}`
 
@@ -90,130 +137,71 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 		return nil, checkNotFound("input", err)
 	}
 
-	blockNumber, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
+	var input Input
+	input.Index = index
+	input.Status = resp.Input.Status
+
+	input.Payload, err = hexutil.Decode(resp.Input.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode payload: %v", err)
+	}
+
+	sender, err := hexutil.Decode(resp.Input.MsgSender)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode msgSender: %v", err)
+	}
+	input.Sender = common.Address(sender)
+
+	input.BlockNumber, err = strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode block number: %v", err)
 	}
 
-	input := &Input{
-		Index:       index,
-		Status:      resp.Input.Status,
-		BlockNumber: blockNumber,
-	}
-	return input, nil
-}
-
-// Get a notice from the rollups node.
-// If the notice doesn't exist, return NotFound error.
-func (r *GraphQLReader) Notice(ctx context.Context, inputIndex int, noticeIndex int) (*Notice, error) {
-	_ = `# @genqlient
-	query getNotice($inputIndex: Int!, $noticeIndex: Int!) {
-	  notice(noticeIndex: $noticeIndex, inputIndex: $inputIndex) {
-	    payload
-	  }
-	}`
-
-	resp, err := getNotice(ctx, r.client, inputIndex, noticeIndex)
+	timestamp, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
 	if err != nil {
-		return nil, checkNotFound("notice", err)
+		return nil, fmt.Errorf("failed to decode timestmap: %v", err)
 	}
+	input.BlockTimestamp = time.Unix(timestamp, 0)
 
-	payload, err := hexutil.Decode(resp.Notice.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode notice payload: %v", err)
-	}
-
-	notice := &Notice{
-		InputIndex:  inputIndex,
-		NoticeIndex: noticeIndex,
-		Payload:     payload,
-	}
-
-	return notice, nil
-}
-
-// Get a report from the rollups node.
-// If the report doesn't exist, return NotFound error.
-func (r *GraphQLReader) Report(ctx context.Context, inputIndex int, reportIndex int) (*Report, error) {
-	_ = `# @genqlient
-	query getReport($inputIndex: Int!, $reportIndex: Int!) {
-	  report(reportIndex: $reportIndex, inputIndex: $inputIndex) {
-	    payload
-	  }
-	}`
-
-	resp, err := getReport(ctx, r.client, inputIndex, reportIndex)
-	if err != nil {
-		return nil, checkNotFound("report", err)
-	}
-
-	payload, err := hexutil.Decode(resp.Report.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode report payload: %v", err)
-	}
-
-	report := &Report{
-		InputIndex:  inputIndex,
-		ReportIndex: reportIndex,
-		Payload:     payload,
-	}
-
-	return report, nil
-}
-
-// Get a page of reports from the rollups node.
-func (r *GraphQLReader) LastReports(ctx context.Context, last int) (*Page[Report], error) {
-	_ = `# @genqlient
-	query getLastReports($last: Int) {
-	  reports(last: $last) {
-	    totalCount
-	    pageInfo {
-	      startCursor
-	      endCursor
-	      hasNextPage
-	      hasPreviousPage
-	    }
-	    edges {
-	      node {
-	        index
-	        input {
-	          index
-	        }
-	        payload
-	      }
-	      cursor
-	    }
-	  }
-	}`
-
-	resp, err := getLastReports(ctx, r.client, last)
-	if err != nil {
-		return nil, err
-	}
-
-	var reports []Report
-	for _, edge := range resp.Reports.Edges {
-		payload, err := hexutil.Decode(edge.Node.Payload)
+	for _, edge := range resp.Input.Vouchers.Edges {
+		var voucher Voucher
+		voucher.InputIndex = index
+		voucher.OutputIndex = edge.Node.Index
+		destination, err := hexutil.Decode(edge.Node.Destination)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode report payload %v", err)
+			return nil, fmt.Errorf("failed to decode voucher destination: %v", err)
 		}
-		reports = append(reports, Report{
-			InputIndex:  edge.Node.Input.Index,
-			ReportIndex: edge.Node.Index,
-			Payload:     payload,
-		})
+		voucher.Destination = common.Address(destination)
+		voucher.Payload, err = hexutil.Decode(edge.Node.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode voucher payload: %v", err)
+		}
+		input.Vouchers = append(input.Vouchers, voucher)
 	}
 
-	page := &Page[Report]{
-		Nodes:           reports,
-		TotalCount:      resp.Reports.TotalCount,
-		StartCursor:     resp.Reports.PageInfo.StartCursor,
-		EndCursor:       resp.Reports.PageInfo.EndCursor,
-		HasNextPage:     resp.Reports.PageInfo.HasNextPage,
-		HasPreviousPage: resp.Reports.PageInfo.HasPreviousPage,
+	for _, edge := range resp.Input.Notices.Edges {
+		var notice Notice
+		notice.InputIndex = index
+		notice.OutputIndex = edge.Node.Index
+		notice.Payload, err = hexutil.Decode(edge.Node.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode notice payload: %v", err)
+		}
+		input.Notices = append(input.Notices, notice)
 	}
 
-	return page, nil
+	for _, edge := range resp.Input.Reports.Edges {
+		var report Report
+		report.InputIndex = index
+		report.OutputIndex = edge.Node.Index
+		report.Payload, err = hexutil.Decode(edge.Node.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode report payload: %v", err)
+		}
+		input.Reports = append(input.Reports, report)
+	}
+
+	return &input, nil
 }
 
 //go:generate go run github.com/Khan/genqlient
