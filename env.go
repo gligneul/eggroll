@@ -18,7 +18,6 @@ type envRollupsAPI interface {
 	SendVoucher(destination common.Address, payload []byte) error
 	SendNotice(payload []byte) error
 	SendReport(payload []byte) error
-	Finish(status rollups.FinishStatus) ([]byte, *rollups.Metadata, error)
 }
 
 // Env allows the DApp contract to interact with the Rollups API.

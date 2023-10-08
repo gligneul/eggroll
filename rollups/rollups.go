@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,9 +16,21 @@ import (
 
 // Metadata from the input.
 type Metadata struct {
+	InputIndex     int
 	Sender         common.Address
 	BlockNumber    int64
 	BlockTimestamp int64
+}
+
+// Represent an advance input from finish.
+type AdvanceInput struct {
+	Metadata *Metadata
+	Payload  []byte
+}
+
+// Represent an inspect input from finish.
+type InspectInput struct {
+	Payload []byte
 }
 
 // Status when finishing a rollups request.
@@ -146,8 +157,8 @@ func (r *RollupsHTTP) SendReport(payload []byte) error {
 }
 
 // Send a finish request to the Rollups API.
-// Return the advance payload and the metadata.
-func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
+// If there is no error, return an AdvanceInput or an InspectInput.
+func (r *RollupsHTTP) Finish(status FinishStatus) (any, error) {
 	request := struct {
 		Status string `json:"status"`
 	}{
@@ -156,12 +167,12 @@ func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to serialize request: %v", err)
+		return nil, fmt.Errorf("failed to serialize request: %v", err)
 	}
 
 	resp, err := r.sendPost("finish", body)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -171,7 +182,7 @@ func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
 	}
 
 	if err = checkStatusOk(resp); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var finishResp struct {
@@ -179,45 +190,79 @@ func (r *RollupsHTTP) Finish(status FinishStatus) ([]byte, *Metadata, error) {
 		Data        json.RawMessage `json:"data"`
 	}
 	if err = json.NewDecoder(resp.Body).Decode(&finishResp); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode finish response: %v", err)
+		return nil, fmt.Errorf("failed to decode finish response: %v", err)
 	}
 
-	if finishResp.RequestType != "advance_state" {
-		log.Printf("rejecting %v", finishResp.RequestType)
-		return r.Finish(FinishStatusReject)
+	switch finishResp.RequestType {
+	case "advance_state":
+		return parseAdvanceInput(finishResp.Data)
+	case "inspect_state":
+		return parseInspectInput(finishResp.Data)
+	default:
+		return nil, fmt.Errorf("invalid request type: %v", finishResp.RequestType)
 	}
+}
 
+func parseAdvanceInput(data json.RawMessage) (any, error) {
 	var advanceRequest struct {
 		Payload  string `json:"payload"`
 		Metadata struct {
 			MsgSender   string `json:"msg_sender"`
-			EpochIndex  int64  `json:"epoch_index"`
-			InputIndex  int64  `json:"input_index"`
+			EpochIndex  int    `json:"epoch_index"`
+			InputIndex  int    `json:"input_index"`
 			BlockNumber int64  `json:"block_number"`
 			Timestamp   int64  `json:"timestamp"`
 		}
 	}
-	if err = json.Unmarshal(finishResp.Data, &advanceRequest); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode advance request: %v", err)
+
+	if err := json.Unmarshal(data, &advanceRequest); err != nil {
+		return nil, fmt.Errorf("failed to decode advance request: %v", err)
 	}
 
 	payload, err := hexutil.Decode(advanceRequest.Payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode advance payload: %v", err)
+		return nil, fmt.Errorf("failed to decode advance payload: %v", err)
 	}
 
 	sender, err := hexutil.Decode(advanceRequest.Metadata.MsgSender)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode advance metadata sender: %v", err)
+		return nil, fmt.Errorf("failed to decode advance metadata sender: %v", err)
 	}
 
 	metadata := &Metadata{
+		InputIndex:     advanceRequest.Metadata.InputIndex,
 		Sender:         common.Address(sender),
 		BlockNumber:    advanceRequest.Metadata.BlockNumber,
 		BlockTimestamp: advanceRequest.Metadata.Timestamp,
 	}
 
-	return payload, metadata, nil
+	input := &AdvanceInput{
+		Metadata: metadata,
+		Payload:  payload,
+	}
+
+	return input, nil
+}
+
+func parseInspectInput(data json.RawMessage) (any, error) {
+	var inspectRequest struct {
+		Payload string `json:"payload"`
+	}
+
+	if err := json.Unmarshal(data, &inspectRequest); err != nil {
+		return nil, fmt.Errorf("failed to decode advance request: %v", err)
+	}
+
+	payload, err := hexutil.Decode(inspectRequest.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode advance payload: %v", err)
+	}
+
+	input := &InspectInput{
+		Payload: payload,
+	}
+
+	return input, nil
 }
 
 // Check the whether the status code is Ok, if not return an error.

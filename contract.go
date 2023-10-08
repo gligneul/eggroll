@@ -70,12 +70,20 @@ func RollWithConfig(contract Contract, config ContractConfig) {
 	status := rollups.FinishStatusAccept
 
 	for {
-		payload, metadata, err := rollupsAPI.Finish(status)
+		input, err := rollupsAPI.Finish(status)
 		if err != nil {
 			env.Fatalf("failed to send finish: %v\n", err)
 		}
 
-		err = handleAdvance(env, contract, decoderMap, walletMap, payload, metadata)
+		switch input := input.(type) {
+		case *rollups.AdvanceInput:
+			err = handleAdvance(env, contract, decoderMap, walletMap, input)
+		case *rollups.InspectInput:
+			err = fmt.Errorf("rejecting inspect")
+		default:
+			err = fmt.Errorf("invalid input type")
+		}
+
 		if err != nil {
 			env.Logf("rejecting: %v\n", err)
 			status = rollups.FinishStatusReject
@@ -99,37 +107,33 @@ func handleAdvance(
 	contract Contract,
 	decoderMap map[InputKey]Decoder,
 	walletMap map[common.Address]wallets.Wallet,
-	payload []byte,
-	metadata *rollups.Metadata,
+	input *rollups.AdvanceInput,
 ) (err error) {
 	var deposit wallets.Deposit
 	var inputBytes []byte
 
-	if metadata.Sender == blockchain.AddressDAppAddressRelay {
-		return handleDAppAddressRelay(env, payload)
+	if input.Metadata.Sender == blockchain.AddressDAppAddressRelay {
+		return handleDAppAddressRelay(env, input.Payload)
 	}
 
-	wallet, ok := walletMap[metadata.Sender]
+	wallet, ok := walletMap[input.Metadata.Sender]
 	if ok {
-		deposit, inputBytes, err = wallet.Deposit(payload)
+		deposit, inputBytes, err = wallet.Deposit(input.Payload)
 		if err != nil {
 			return fmt.Errorf("malformed portal input: %v", err)
 		}
 	} else {
 		deposit = nil
-		inputBytes = payload
+		inputBytes = input.Payload
 	}
 
-	input, err := decodeInput(decoderMap, inputBytes)
+	decodedInput, err := decodeInput(decoderMap, inputBytes)
 	if err != nil {
 		return err
 	}
 
-	// set env variables before decoding calling contract.Advance
-	env.metadata = metadata
-	env.deposit = deposit
-
-	if err = contract.Advance(env, input); err != nil {
+	env.setInputData(input.Metadata, deposit)
+	if err = contract.Advance(env, decodedInput); err != nil {
 		return err
 	}
 
@@ -142,7 +146,7 @@ func handleDAppAddressRelay(env *Env, payload []byte) error {
 		return fmt.Errorf("invalid len from DAppAddressRelay %v", len(payload))
 	}
 	address := (common.Address)(payload)
-	env.dappAddress = &address
+	env.setDAppAddress(&address)
 	env.Logf("got dapp address: %v", address)
 	return nil
 }
