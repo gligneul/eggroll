@@ -48,7 +48,8 @@ func (e *EnvLogger) Log(a ...any) {
 // Log the message and send a report.
 func (e *EnvLogger) log(message string) {
 	e.logger.Print(message)
-	if err := e.rollups.SendReport([]byte(message)); err != nil {
+	report := encodeLogReport([]byte(message))
+	if err := e.rollups.SendReport(report); err != nil {
 		e.logger.Fatalf("failed to send report: %v\n", err)
 	}
 }
