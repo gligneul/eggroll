@@ -36,7 +36,7 @@ jobs:
         node-version: 18
 
     - name: Install sunodo
-      run: npm install -g @sunodo/cli@0.9.0
+      run: yarn global add @sunodo/cli
 
     - name: Test examples
       run: ./scripts/test-examples.sh -c
