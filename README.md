@@ -1,6 +1,7 @@
 # EggRoll 🐣🛼
 
-![build](https://github.com/gligneul/eggroll/actions/workflows/go.yml/badge.svg)
+![Build](https://github.com/gligneul/eggroll/actions/workflows/go.yml/badge.svg)
+[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/gligneul/eggroll)
 
 A high-level framework for Cartesi Rollups in Go.
 
