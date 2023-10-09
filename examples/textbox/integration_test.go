@@ -50,20 +50,12 @@ func sendInputsAndVerifyState(
 		}
 	}
 
-	if err := client.WaitFor(ctx, lastInputIndex); err != nil {
+	r, err := client.WaitFor(ctx, lastInputIndex)
+	if err != nil {
 		t.Fatalf("failed to wait for input: %v", err)
 	}
 
-	if err := client.Sync(ctx); err != nil {
-		t.Fatalf("failed to sync state: %v", err)
-	}
-
-	var contract Contract
-	if err := client.ReadState(&contract); err != nil {
-		t.Fatalf("failed to read state: %v", err)
-	}
-
-	if contract.TextBox != expectedState {
-		t.Fatalf("invalid state: '%v'; expected '%v'", contract.TextBox, expectedState)
+	if string(r.Result) != expectedState {
+		t.Fatalf("invalid state: '%v'; expected '%v'", string(r.Result), expectedState)
 	}
 }

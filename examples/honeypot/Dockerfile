@@ -28,7 +28,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o dapp ./contract
+RUN go build -o ./dapp/dapp ./dapp
 
 # runtime stage: produces final image that will be executed
 FROM --platform=linux/riscv64 riscv64/ubuntu:22.04
@@ -48,7 +48,7 @@ EOF
 ENV PATH="/opt/cartesi/bin:${PATH}"
 
 WORKDIR /opt/cartesi/dapp
-COPY --from=build-stage /opt/build/dapp .
+COPY --from=build-stage /opt/build/dapp/dapp .
 
 ENTRYPOINT ["rollup-init"]
 CMD ["/opt/cartesi/dapp/dapp"]
