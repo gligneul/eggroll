@@ -6,20 +6,13 @@ package eggroll
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/blockchain"
+	"github.com/gligneul/eggroll/internal/sunodo"
 	"github.com/gligneul/eggroll/reader"
 )
-
-var logger *log.Logger
-
-func init() {
-	flags := log.LstdFlags | log.Lmsgprefix
-	logger = log.New(os.Stdout, "eggroll: ", flags)
-}
 
 // Result of an advance input.
 type AdvanceResult struct {
@@ -38,7 +31,7 @@ func newAdvanceResult(input *reader.Input) *AdvanceResult {
 	for _, report := range input.Reports {
 		tag, payload, err := decodeReport(report.Payload)
 		if err != nil {
-			logger.Printf("failed to decode report: %v", err)
+			// TODO how do we report this?
 			continue
 		}
 		switch tag {
@@ -62,30 +55,38 @@ type blockchainAPI interface {
 	SendInput(ctx context.Context, input []byte) error
 }
 
-// The Client interacts with the DApp contract off chain.
-type Client struct {
-	reader     readerAPI
-	blockchain blockchainAPI
-	state      []byte
-}
-
 // Configuration for the Client.
 type ClientConfig struct {
+	DAppAddress      common.Address
 	GraphqlEndpoint  string
 	ProviderEndpoint string
+}
+
+// The Client interacts with the DApp contract off chain.
+type Client struct {
+	ClientConfig
+	reader     readerAPI
+	blockchain blockchainAPI
 }
 
 // Create the Client with a custom config.
 func NewClient(config ClientConfig) *Client {
 	return &Client{
-		reader:     reader.NewGraphQLReader(config.GraphqlEndpoint),
-		blockchain: blockchain.NewETHClient(config.ProviderEndpoint),
+		ClientConfig: config,
+		reader:       reader.NewGraphQLReader(config.GraphqlEndpoint),
+		blockchain:   blockchain.NewETHClient(config.ProviderEndpoint),
 	}
 }
 
 // Create the Client loading the config from environment variables.
+// This function uses the context when building the client but do not store it.
 func NewLocalClient() *Client {
+	dappAddress, err := sunodo.GetDAppAddress()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get DApp address: %v", err))
+	}
 	config := ClientConfig{
+		DAppAddress:      dappAddress,
 		GraphqlEndpoint:  "http://localhost:8080/graphql",
 		ProviderEndpoint: "http://localhost:8545",
 	}
