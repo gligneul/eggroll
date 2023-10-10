@@ -14,8 +14,6 @@ import (
 	"github.com/gligneul/eggroll/reader"
 )
 
-const envPrefix = "EGGROLL_"
-
 var logger *log.Logger
 
 func init() {
@@ -36,6 +34,7 @@ type AdvanceResult struct {
 
 func newAdvanceResult(input *reader.Input) *AdvanceResult {
 	var result AdvanceResult
+	result.Input = input
 	for _, report := range input.Reports {
 		tag, payload, err := decodeReport(report.Payload)
 		if err != nil {
@@ -50,30 +49,6 @@ func newAdvanceResult(input *reader.Input) *AdvanceResult {
 		}
 	}
 	return &result
-}
-
-// Load variable from env.
-func loadVar(varName string, defaultValue string) string {
-	varName = envPrefix + varName
-	value := os.Getenv(varName)
-	if value == "" {
-		value = defaultValue
-	}
-	return value
-}
-
-// Configuration for the Client.
-type ClientConfig struct {
-	GraphqlEndpoint  string
-	ProviderEndpoint string
-}
-
-// Load the config from environment variables.
-func NewClientConfig() *ClientConfig {
-	return &ClientConfig{
-		GraphqlEndpoint:  loadVar("GRAPHQL_ENDPOINT", "http://localhost:8080/graphql"),
-		ProviderEndpoint: loadVar("ETH_RPC_ENDPOINT", "http://localhost:8545"),
-	}
 }
 
 // Read the rollups state off chain.
@@ -94,17 +69,27 @@ type Client struct {
 	state      []byte
 }
 
-// Create the Client loading the config from environment variables.
-func NewClient() *Client {
-	return NewClientFromConfig(NewClientConfig())
+// Configuration for the Client.
+type ClientConfig struct {
+	GraphqlEndpoint  string
+	ProviderEndpoint string
 }
 
 // Create the Client with a custom config.
-func NewClientFromConfig(config *ClientConfig) *Client {
+func NewClient(config ClientConfig) *Client {
 	return &Client{
 		reader:     reader.NewGraphQLReader(config.GraphqlEndpoint),
 		blockchain: blockchain.NewETHClient(config.ProviderEndpoint),
 	}
+}
+
+// Create the Client loading the config from environment variables.
+func NewLocalClient() *Client {
+	config := ClientConfig{
+		GraphqlEndpoint:  "http://localhost:8080/graphql",
+		ProviderEndpoint: "http://localhost:8545",
+	}
+	return NewClient(config)
 }
 
 //
