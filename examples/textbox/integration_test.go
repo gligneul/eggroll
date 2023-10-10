@@ -18,7 +18,7 @@ func TestTextBox(t *testing.T) {
 	tester := eggtest.NewIntegrationTester(t)
 	defer tester.Close()
 
-	client := eggroll.NewClient()
+	client := eggroll.NewLocalClient()
 
 	inputs := []any{
 		Append{Value: "egg"},
