@@ -3,7 +3,7 @@
 usage() {
     echo "usage: scripts/test-examples.sh [-c]
 
-    -c  clean the sunodo build after each test"
+    -c  Clean the sunodo build before and after each test"
 }
 
 clean=false
@@ -30,13 +30,13 @@ for example in ./examples/*; do
     (
         cd $example
 
-        if [ "$clean" = "true" -a -d .sunodo ]; then
+        if [[ "$clean" == "true" && -d .sunodo ]]; then
             rm -r .sunodo
         fi
 
         go test -v || exit 1
 
-        if [ "$clean" = "true" -a -d .sunodo ]; then
+        if [[ "$clean" == "true" && -d .sunodo ]]; then
             rm -r .sunodo
         fi
     ) || exit 1
