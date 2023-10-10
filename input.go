@@ -59,23 +59,24 @@ func decodeInput(decoderMap map[InputKey]Decoder, payload []byte) (any, error) {
 	return input, nil
 }
 
-// Generic decoder for Inputs of type I.
-type GenericDecoder[I any] struct {
+// JSON decoder for Inputs of type I.
+// The JSON decoder uses the first 4 bytes of the keccak of the input type as the input key.
+type JSONDecoder[I any] struct {
 	inputType reflect.Type
 }
 
-// Create a new generic decoder.
-func NewGenericDecoder[I any]() *GenericDecoder[I] {
-	return &GenericDecoder[I]{
+// Create a new JSON decoder for the input.
+func NewJSONDecoder[I any]() *JSONDecoder[I] {
+	return &JSONDecoder[I]{
 		inputType: reflect.TypeOf((*I)(nil)).Elem(),
 	}
 }
 
-func (d *GenericDecoder[I]) InputKey() InputKey {
-	return genericInputKey(d.inputType)
+func (d *JSONDecoder[I]) InputKey() InputKey {
+	return jsonInputKey(d.inputType)
 }
 
-func (d *GenericDecoder[I]) Decode(inputBytes []byte) (any, error) {
+func (d *JSONDecoder[I]) Decode(inputBytes []byte) (any, error) {
 	input := reflect.New(d.inputType).Interface()
 	if err := json.Unmarshal(inputBytes, input); err != nil {
 		return nil, fmt.Errorf("failed to decode input: %v", err)
@@ -83,10 +84,10 @@ func (d *GenericDecoder[I]) Decode(inputBytes []byte) (any, error) {
 	return input, nil
 }
 
-// Encode the input into bytes.
-func EncodeGenericInput(input any) ([]byte, error) {
+// Encode the input into JSON, adding the input key as the prefix.
+func EncodeJSONInput(input any) ([]byte, error) {
 	inputType := reflect.TypeOf(input)
-	key := genericInputKey(inputType)
+	key := jsonInputKey(inputType)
 	inputBytes, err := json.Marshal(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input: %v", err)
@@ -97,7 +98,7 @@ func EncodeGenericInput(input any) ([]byte, error) {
 // Use the first 4 bytes of the keccak of the Input type as the handler key.
 // This is inspired by the Ethereum ABI encoding.
 // See: https://docs.soliditylang.org/en/latest/abi-spec.html
-func genericInputKey(inputType reflect.Type) InputKey {
+func jsonInputKey(inputType reflect.Type) InputKey {
 	// Check if inputType is struct
 	if inputType.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("input type must be a struct; is %v\n", inputType))

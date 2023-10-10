@@ -7,6 +7,7 @@ import (
 	"context"
 	"os/exec"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
@@ -24,7 +25,7 @@ func NewETHClient(endpoint string) *ETHClient {
 }
 
 // Send input to the blockchain.
-func (c *ETHClient) SendInput(ctx context.Context, input []byte) error {
+func (c *ETHClient) SendInput(ctx context.Context, dappAddress common.Address, input []byte) error {
 	inputHex := hexutil.Encode(input)
 
 	cmd := exec.Command(

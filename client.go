@@ -52,7 +52,7 @@ type readerAPI interface {
 
 // Communicate with the blockchain.
 type blockchainAPI interface {
-	SendInput(ctx context.Context, input []byte) error
+	SendInput(ctx context.Context, dappAddress common.Address, input []byte) error
 }
 
 // Configuration for the Client.
@@ -98,17 +98,17 @@ func NewLocalClient() *Client {
 //
 
 // Send the input as bytes to the DApp contract.
-func (c *Client) SendBytes(ctx context.Context, inputBytes []byte) error {
-	return c.blockchain.SendInput(ctx, inputBytes)
+func (c *Client) SendInputBytes(ctx context.Context, inputBytes []byte) error {
+	return c.blockchain.SendInput(ctx, c.DAppAddress, inputBytes)
 }
 
 // Send a generic input to the DApp contract.
-func (c *Client) SendGeneric(ctx context.Context, input any) error {
-	inputBytes, err := EncodeGenericInput(input)
+func (c *Client) SendInputJson(ctx context.Context, input any) error {
+	inputBytes, err := EncodeJSONInput(input)
 	if err != nil {
 		return err
 	}
-	return c.SendBytes(ctx, inputBytes)
+	return c.SendInputBytes(ctx, inputBytes)
 }
 
 //
