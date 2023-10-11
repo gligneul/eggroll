@@ -17,7 +17,7 @@ To use EggRoll, you also need [sunodo](https://github.com/sunodo/sunodo/) versio
 
 ## Quick Look
 
-The first step to using EggRoll is defining the contract struct inside the Cartesi VM.
+The first step to using EggRoll is defining the contract struct that runs inside the Cartesi VM.
 This struct should use the `eggroll.DefaultContract` to implement the optional methods of the `eggroll.Contract` interface.
 The only obligatory method is the advance one, which receives the rollup environment and the input.
 In the example below, the advance method logs and returns the input.
@@ -32,9 +32,9 @@ type TemplateContract struct {
 }
 
 func (c *TemplateContract) Advance(env *eggroll.Env, input any) ([]byte, error) {
-	inputBytes := input.([]byte)
-	env.Logf("received: %v", string(inputBytes))
-	return inputBytes, nil
+	inputStr := string(input.([]byte))
+	env.Logf("received: %v", inputStr)
+	return []byte("echo: " + inputStr), nil
 }
 
 func main() {
@@ -42,27 +42,25 @@ func main() {
 }
 ```
 
-Finally, we can use the `eggroll.Client` struct to interact with the contract.
-`client.SendBytes` sends the input to the blockchain.
-`client.WaitFor` reads the rollups node, waiting until it processes the given input.
-Once the input is ready, the code can retrieve the result from the contract.
+Off-chain, you can use the `eggroll.DevClient` struct to interact with the contract.
+The example below reads the command line's first argument to use as input.
+The `client.SendInputBytes` function sends this input to the blockchain.
+The `client.WaitFor` reads the rollups node, waiting until it processes the given input.
+Once the node processes the input, the code prints the result from the contract.
 
 <!---
-cat ./examples/template/dapp_test.go
+cat ./examples/template/client/main.go
 -->
 ```
-	client := eggroll.NewClient()
-
-	if err := client.SendBytes(ctx, []byte("eggroll")); err != nil {
-		log.Fatalf("failed to send input: %v", err)
-	}
-
-	result, err := client.WaitFor(ctx, 0)
-	if err != nil {
-		log.Fatalf("failed to wait for input: %v", err)
-	}
-
-	if string(result.Result) != "eggroll" {
-		log.Fatalf("wrong result: %v", string(result.Result))
-	}
+func main() {
+	input := os.Args[1]
+	ctx := context.Background()
+	client, _ := eggroll.NewDevClient()
+	inputIndex, _ := client.SendInputBytes(ctx, []byte(input))
+	result, _ := client.WaitFor(ctx, inputIndex)
+	fmt.Println(string(result.Result))
+}
 ```
+
+To run this example or start your project, check out the [template repository](https://github.com/gligneul/eggroll-template/).
+For more examples, check the examples directory in this repo.

@@ -18,7 +18,7 @@ type HoneypotContract struct {
 
 func (c HoneypotContract) Decoders() []eggroll.Decoder {
 	return []eggroll.Decoder{
-		eggroll.NewGenericDecoder[honeypot.Withdraw](),
+		eggroll.NewJSONDecoder[honeypot.Withdraw](),
 	}
 }
 

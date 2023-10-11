@@ -18,33 +18,34 @@ func TestTextBox(t *testing.T) {
 	tester := eggtest.NewIntegrationTester(t)
 	defer tester.Close()
 
-	client := eggroll.NewLocalClient()
+	client, err := eggroll.NewDevClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
 
 	inputs := []any{
 		Append{Value: "egg"},
 		Append{Value: "roll"},
 	}
-	lastInputIndex := 1
-	sendInputsAndVerifyState(t, client, inputs, lastInputIndex, "eggroll")
+	sendInputsAndVerifyState(t, client, inputs, "eggroll")
 
 	inputs = []any{
 		Clear{},
 		Append{Value: "hi"},
 	}
-	lastInputIndex = 3
-	sendInputsAndVerifyState(t, client, inputs, lastInputIndex, "hi")
+	sendInputsAndVerifyState(t, client, inputs, "hi")
 }
 
-func sendInputsAndVerifyState(
-	t *testing.T, client *eggroll.Client,
-	inputs []any, lastInputIndex int,
-	expectedState string) {
+func sendInputsAndVerifyState(t *testing.T, client *eggroll.DevClient,
+	inputs []any, expectedState string) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
+	var lastInputIndex int
 	for _, input := range inputs {
-		err := client.SendGeneric(ctx, input)
+		var err error
+		lastInputIndex, err = client.SendInputJSON(ctx, input)
 		if err != nil {
 			t.Fatalf("failed to send input: %v", err)
 		}

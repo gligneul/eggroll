@@ -17,8 +17,8 @@ type TextBoxContract struct {
 
 func (c *TextBoxContract) Decoders() []eggroll.Decoder {
 	return []eggroll.Decoder{
-		eggroll.NewGenericDecoder[textbox.Clear](),
-		eggroll.NewGenericDecoder[textbox.Append](),
+		eggroll.NewJSONDecoder[textbox.Clear](),
+		eggroll.NewJSONDecoder[textbox.Append](),
 	}
 }
 
