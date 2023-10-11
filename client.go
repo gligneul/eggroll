@@ -44,53 +44,53 @@ func newAdvanceResult(input *reader.Input) *AdvanceResult {
 	return &result
 }
 
-// Read the rollups state off chain.
-// For more details, see the eggroll/reader package.
-type readerAPI interface {
-	Input(ctx context.Context, index int) (*reader.Input, error)
-}
-
-// Communicate with the blockchain.
-type blockchainAPI interface {
-	SendInput(ctx context.Context, dappAddress common.Address, input []byte) error
-}
-
-// Configuration for the Client.
-type ClientConfig struct {
+// Configuration for the DevClient.
+type DevClientConfig struct {
 	DAppAddress      common.Address
 	GraphqlEndpoint  string
 	ProviderEndpoint string
+	Mnemonic         string
+	AccountIndex     uint32
 }
 
-// The Client interacts with the DApp contract off chain.
-type Client struct {
-	ClientConfig
-	reader     readerAPI
-	blockchain blockchainAPI
+// The DevClient interacts with the DApp contract off chain.
+type DevClient struct {
+	DevClientConfig
+	reader     *reader.GraphQLReader
+	blockchain *blockchain.ETHClient
 }
 
-// Create the Client with a custom config.
-func NewClient(config ClientConfig) *Client {
-	return &Client{
-		ClientConfig: config,
-		reader:       reader.NewGraphQLReader(config.GraphqlEndpoint),
-		blockchain:   blockchain.NewETHClient(config.ProviderEndpoint),
+// Create the DevClient with a custom config.
+func NewDevClientWithConfig(config DevClientConfig) (*DevClient, error) {
+	blockchainAPI, err := blockchain.NewETHClient(config.ProviderEndpoint)
+	if err != nil {
+		return nil, err
 	}
+	client := &DevClient{
+		DevClientConfig: config,
+		reader:          reader.NewGraphQLReader(config.GraphqlEndpoint),
+		blockchain:      blockchainAPI,
+	}
+	return client, nil
 }
 
-// Create the Client loading the config from environment variables.
-// This function uses the context when building the client but do not store it.
-func NewLocalClient() *Client {
+// Create the DevClient for local development.
+// Connects to the Rollups Node and the Ethereum Node setup by sunodo.
+// This client will use the Foundry's test mnemonic to send transactions.
+func NewDevClient() (*DevClient, error) {
 	dappAddress, err := sunodo.GetDAppAddress()
 	if err != nil {
-		panic(fmt.Sprintf("failed to get DApp address: %v", err))
+		return nil, fmt.Errorf("failed to get DApp address: %v", err)
 	}
-	config := ClientConfig{
+
+	config := DevClientConfig{
 		DAppAddress:      dappAddress,
 		GraphqlEndpoint:  "http://localhost:8080/graphql",
-		ProviderEndpoint: "http://localhost:8545",
+		ProviderEndpoint: "ws://localhost:8545",
+		Mnemonic:         "test test test test test test test test test test test junk",
+		AccountIndex:     0,
 	}
-	return NewClient(config)
+	return NewDevClientWithConfig(config)
 }
 
 //
@@ -98,15 +98,37 @@ func NewLocalClient() *Client {
 //
 
 // Send the input as bytes to the DApp contract.
-func (c *Client) SendInputBytes(ctx context.Context, inputBytes []byte) error {
-	return c.blockchain.SendInput(ctx, c.DAppAddress, inputBytes)
+// This function waits until the transaction is added to a block and return the input index.
+func (c *DevClient) SendInputBytes(ctx context.Context, inputBytes []byte) (int, error) {
+	privateKey, err := blockchain.MnemonicToPrivateKey(c.Mnemonic, c.AccountIndex)
+	if err != nil {
+		return 0, err
+	}
+	signer, err := c.blockchain.CreateSigner(ctx, privateKey)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := c.blockchain.SendInput(ctx, signer, c.DAppAddress, inputBytes)
+	if err != nil {
+		return 0, err
+	}
+	err = c.blockchain.WaitForTransaction(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	inputIndex, err := c.blockchain.GetInputIndex(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	return inputIndex, nil
 }
 
 // Send a generic input to the DApp contract.
-func (c *Client) SendInputJson(ctx context.Context, input any) error {
+// This function waits until the transaction is added to a block and return the input index.
+func (c *DevClient) SendInputJSON(ctx context.Context, input any) (int, error) {
 	inputBytes, err := EncodeJSONInput(input)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	return c.SendInputBytes(ctx, inputBytes)
 }
@@ -117,7 +139,7 @@ func (c *Client) SendInputJson(ctx context.Context, input any) error {
 
 // Wait until the DApp contract processes a given input.
 // Returns the advance result of that input.
-func (c *Client) WaitFor(ctx context.Context, inputIndex int) (*AdvanceResult, error) {
+func (c *DevClient) WaitFor(ctx context.Context, inputIndex int) (*AdvanceResult, error) {
 	for {
 		input, err := c.reader.Input(ctx, inputIndex)
 		if err != nil {
@@ -136,7 +158,7 @@ func (c *Client) WaitFor(ctx context.Context, inputIndex int) (*AdvanceResult, e
 
 // Sync to the latest Dapp state.
 // Return the updated slice of Advance results.
-func (c *Client) Sync(ctx context.Context, results []*AdvanceResult) ([]*AdvanceResult, error) {
+func (c *DevClient) Sync(ctx context.Context, results []*AdvanceResult) ([]*AdvanceResult, error) {
 	inputIndex := 0
 	if len(results) != 0 {
 		inputIndex = results[len(results)-1].Index
