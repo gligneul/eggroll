@@ -30,6 +30,6 @@ type Deposit interface {
 type Wallet interface {
 
 	// Handle the raw bytes of a deposit that came from the portal.
-	// After handling the deposit, return the parsed deposit, and the DApp input paylaod.
+	// After handling the deposit, return the parsed deposit, and the DApp input payload.
 	Deposit(input []byte) (Deposit, []byte, error)
 }
