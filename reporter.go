@@ -14,7 +14,7 @@ type reportTag byte
 
 const (
 	reportTagLog reportTag = iota
-	reportTagResult
+	reportTagReturn
 	reportTagLen
 )
 
@@ -91,8 +91,8 @@ func (e *Reporter) Fatal(a ...any) {
 }
 
 // Send a result advance or inspect result.
-func (e *Reporter) sendResult(payload []byte) {
-	e.sendReport(reportTagResult, payload)
+func (e *Reporter) sendReturn(payload []byte) {
+	e.sendReport(reportTagReturn, payload)
 }
 
 // Send a report.

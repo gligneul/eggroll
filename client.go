@@ -18,16 +18,20 @@ import (
 type AdvanceResult struct {
 	*reader.Input
 
-	// Result returned by the contract advance method.
-	Result []byte
+	// Value returned by the contract advance method.
+	RawReturn []byte
 
 	// Logs generated during the advance method.
 	Logs []string
+
+	codecManager *codecManager
 }
 
-func newAdvanceResult(input *reader.Input) *AdvanceResult {
-	var result AdvanceResult
-	result.Input = input
+func newAdvanceResult(input *reader.Input, codecManager *codecManager) *AdvanceResult {
+	result := &AdvanceResult{
+		Input:        input,
+		codecManager: codecManager,
+	}
 	for _, report := range input.Reports {
 		tag, payload, err := decodeReport(report.Payload)
 		if err != nil {
@@ -35,17 +39,24 @@ func newAdvanceResult(input *reader.Input) *AdvanceResult {
 			continue
 		}
 		switch tag {
-		case reportTagResult:
-			result.Result = payload
+		case reportTagReturn:
+			result.RawReturn = payload
 		case reportTagLog:
 			result.Logs = append(result.Logs, string(payload))
 		}
 	}
-	return &result
+	return result
+}
+
+// Decode the return value using the codecs.
+// If fails, return the error in the place of the value.
+func (r *AdvanceResult) DecodeReturn() any {
+	return r.codecManager.decode(r.RawReturn)
 }
 
 // Configuration for the DevClient.
 type DevClientConfig struct {
+	Codecs           []Codec
 	DAppAddress      common.Address
 	GraphqlEndpoint  string
 	ProviderEndpoint string
@@ -56,8 +67,9 @@ type DevClientConfig struct {
 // The DevClient interacts with the DApp contract off chain.
 type DevClient struct {
 	DevClientConfig
-	reader     *reader.GraphQLReader
-	blockchain *blockchain.ETHClient
+	codecManager *codecManager
+	reader       *reader.GraphQLReader
+	blockchain   *blockchain.ETHClient
 }
 
 // Create the DevClient with a custom config.
@@ -68,6 +80,7 @@ func NewDevClientWithConfig(config DevClientConfig) (*DevClient, error) {
 	}
 	client := &DevClient{
 		DevClientConfig: config,
+		codecManager:    newCodecManager(config.Codecs),
 		reader:          reader.NewGraphQLReader(config.GraphqlEndpoint),
 		blockchain:      blockchainAPI,
 	}
@@ -77,13 +90,14 @@ func NewDevClientWithConfig(config DevClientConfig) (*DevClient, error) {
 // Create the DevClient for local development.
 // Connects to the Rollups Node and the Ethereum Node setup by sunodo.
 // This client will use the Foundry's test mnemonic to send transactions.
-func NewDevClient() (*DevClient, error) {
+func NewDevClient(codecs []Codec) (*DevClient, error) {
 	dappAddress, err := sunodo.GetDAppAddress()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DApp address: %v", err)
 	}
 
 	config := DevClientConfig{
+		Codecs:           codecs,
 		DAppAddress:      dappAddress,
 		GraphqlEndpoint:  "http://localhost:8080/graphql",
 		ProviderEndpoint: "ws://localhost:8545",
@@ -97,9 +111,18 @@ func NewDevClient() (*DevClient, error) {
 // Send functions
 //
 
-// Send the input as bytes to the DApp contract.
+// Send the input to the DApp contract.
+// If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *DevClient) SendInputBytes(ctx context.Context, inputBytes []byte) (int, error) {
+func (c *DevClient) SendInput(ctx context.Context, input any) (int, error) {
+	inputBytes, ok := input.([]byte)
+	if !ok {
+		var err error
+		inputBytes, err = c.codecManager.encode(input)
+		if err != nil {
+			return 0, err
+		}
+	}
 	privateKey, err := blockchain.MnemonicToPrivateKey(c.Mnemonic, c.AccountIndex)
 	if err != nil {
 		return 0, err
@@ -123,16 +146,6 @@ func (c *DevClient) SendInputBytes(ctx context.Context, inputBytes []byte) (int,
 	return inputIndex, nil
 }
 
-// Send a generic input to the DApp contract.
-// This function waits until the transaction is added to a block and return the input index.
-func (c *DevClient) SendInputJSON(ctx context.Context, input any) (int, error) {
-	inputBytes, err := EncodeJSONInput(input)
-	if err != nil {
-		return 0, err
-	}
-	return c.SendInputBytes(ctx, inputBytes)
-}
-
 //
 // Reader functions
 //
@@ -149,7 +162,7 @@ func (c *DevClient) WaitFor(ctx context.Context, inputIndex int) (*AdvanceResult
 			return nil, fmt.Errorf("faild to read input: %v", err)
 		}
 		if input.Status != reader.CompletionStatusUnprocessed {
-			return newAdvanceResult(input), nil
+			return newAdvanceResult(input, c.codecManager), nil
 		}
 	wait:
 		time.Sleep(time.Second)
@@ -174,7 +187,7 @@ func (c *DevClient) Sync(ctx context.Context, results []*AdvanceResult) ([]*Adva
 		if input.Status == reader.CompletionStatusUnprocessed {
 			break
 		}
-		results = append(results, newAdvanceResult(input))
+		results = append(results, newAdvanceResult(input, c.codecManager))
 		inputIndex++
 	}
 	return results, nil

@@ -23,29 +23,37 @@ type envRollupsAPI interface {
 type Env struct {
 	*Reporter
 
-	rollups     envRollupsAPI
-	etherWallet *wallets.EtherWallet
-	dappAddress *common.Address
+	rollups      envRollupsAPI
+	codecManager *codecManager
+	etherWallet  *wallets.EtherWallet
+	dappAddress  *common.Address
 
 	// Reset for each input.
 	metadata *rollups.Metadata
-
-	// Reset for each input.
-	deposit wallets.Deposit
+	deposit  wallets.Deposit
+	RawInput []byte
 }
 
 // Create a new env.
-func newEnv(reporter *Reporter, rollups envRollupsAPI) *Env {
+func newEnv(reporter *Reporter, rollups envRollupsAPI, codecManager *codecManager) *Env {
 	return &Env{
-		Reporter:    reporter,
-		rollups:     rollups,
-		etherWallet: wallets.NewEtherWallet(),
+		Reporter:     reporter,
+		rollups:      rollups,
+		codecManager: codecManager,
+		etherWallet:  wallets.NewEtherWallet(),
 	}
 }
 
-func (e *Env) setInputData(metadata *rollups.Metadata, deposit wallets.Deposit) {
+func (e *Env) setInputData(metadata *rollups.Metadata, deposit wallets.Deposit, rawInput []byte) {
 	e.metadata = metadata
 	e.deposit = deposit
+	e.RawInput = rawInput
+}
+
+// Decode the input using the codecs.
+// If fails, return the error in the place of the value.
+func (e *Env) DecodeInput() any {
+	return e.codecManager.decode(e.RawInput)
 }
 
 // Get the Metadata for the current input.
