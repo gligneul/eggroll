@@ -39,4 +39,4 @@ jobs:
       run: yarn global add @sunodo/cli
 
     - name: Test examples
-      run: ./scripts/test-examples.sh -c
+      run: ./internal/scripts/test-examples.sh -c

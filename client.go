@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll/blockchain"
+	"github.com/gligneul/eggroll/internal/blockchain"
+	"github.com/gligneul/eggroll/internal/reader"
 	"github.com/gligneul/eggroll/internal/sunodo"
-	"github.com/gligneul/eggroll/reader"
 )
 
 // Result of an advance input.
