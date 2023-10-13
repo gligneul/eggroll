@@ -101,7 +101,7 @@ type DevClient struct {
 
 // Create the DevClient with a custom config.
 func NewDevClientWithConfig(config DevClientConfig) (*DevClient, error) {
-	blockchainAPI, err := blockchain.NewETHClient(config.ProviderEndpoint)
+	blockchainAPI, err := blockchain.NewETHClient(config.ProviderEndpoint, config.DAppAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (c *DevClient) SendInput(ctx context.Context, input any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	tx, err := c.blockchain.SendInput(ctx, signer, c.DAppAddress, inputBytes)
+	tx, err := c.blockchain.SendInput(ctx, signer, inputBytes)
 	if err != nil {
 		return 0, err
 	}
@@ -186,7 +186,7 @@ func (c *DevClient) SendDAppAddress(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	tx, err := c.blockchain.SendDAppAddress(ctx, signer, c.DAppAddress)
+	tx, err := c.blockchain.SendDAppAddress(ctx, signer)
 	if err != nil {
 		return 0, err
 	}

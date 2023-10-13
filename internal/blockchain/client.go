@@ -25,13 +25,14 @@ import (
 // Implements blockchain client for Ethereum using go-ethereum.
 // This struct provides methods that are specific for the Cartesi Rollups.
 type ETHClient struct {
+	dappAddress      common.Address
 	client           *ethclient.Client
 	dappAddressRelay *DAppAddressRelay
 	inputBox         *InputBox
 }
 
 // Create new ETH client.
-func NewETHClient(endpoint string) (*ETHClient, error) {
+func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, error) {
 	client, err := ethclient.Dial(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum: %v", err)
@@ -45,6 +46,7 @@ func NewETHClient(endpoint string) (*ETHClient, error) {
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}
 	ethClient := &ETHClient{
+		dappAddress:      dappAddress,
 		client:           client,
 		dappAddressRelay: dappAddressRelay,
 		inputBox:         inputBox,
@@ -53,12 +55,10 @@ func NewETHClient(endpoint string) (*ETHClient, error) {
 }
 
 // Send input to the blockchain.
-func (c *ETHClient) SendInput(
-	ctx context.Context, signer *bind.TransactOpts, dappAddress common.Address, input []byte,
-) (
-	*types.Transaction, error,
-) {
-	tx, err := c.inputBox.AddInput(signer, dappAddress, input)
+func (c *ETHClient) SendInput(ctx context.Context, signer *bind.TransactOpts, input []byte) (
+	*types.Transaction, error) {
+
+	tx, err := c.inputBox.AddInput(signer, c.dappAddress, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add input: %v", err)
 	}
@@ -66,12 +66,10 @@ func (c *ETHClient) SendInput(
 }
 
 // Send dapp address with the dapp address relay contract.
-func (c *ETHClient) SendDAppAddress(
-	ctx context.Context, signer *bind.TransactOpts, dappAddress common.Address,
-) (
-	*types.Transaction, error,
-) {
-	tx, err := c.dappAddressRelay.RelayDAppAddress(signer, dappAddress)
+func (c *ETHClient) SendDAppAddress(ctx context.Context, signer *bind.TransactOpts) (
+	*types.Transaction, error) {
+
+	tx, err := c.dappAddressRelay.RelayDAppAddress(signer, c.dappAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send dapp address: %v", err)
 	}
