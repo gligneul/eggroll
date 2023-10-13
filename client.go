@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gligneul/eggroll/internal/blockchain"
 	"github.com/gligneul/eggroll/internal/reader"
 	"github.com/gligneul/eggroll/internal/sunodo"
@@ -144,40 +146,39 @@ func NewDevClient(codecs []Codec) (*DevClient, error) {
 // If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
 func (c *DevClient) SendInput(ctx context.Context, input any) (int, error) {
-	inputBytes, ok := input.([]byte)
-	if !ok {
-		var err error
-		inputBytes, err = c.codecManager.encode(input)
-		if err != nil {
-			return 0, err
-		}
-	}
-	privateKey, err := blockchain.MnemonicToPrivateKey(c.Mnemonic, c.AccountIndex)
+	inputBytes, err := c.encodeInput(input)
 	if err != nil {
 		return 0, err
 	}
-	signer, err := c.blockchain.CreateSigner(ctx, privateKey)
-	if err != nil {
-		return 0, err
-	}
-	tx, err := c.blockchain.SendInput(ctx, signer, inputBytes)
-	if err != nil {
-		return 0, err
-	}
-	err = c.blockchain.WaitForTransaction(ctx, tx)
-	if err != nil {
-		return 0, err
-	}
-	inputIndex, err := c.blockchain.GetInputIndex(ctx, tx)
-	if err != nil {
-		return 0, err
-	}
-	return inputIndex, nil
+	return c.send(ctx, func(signer *bind.TransactOpts) (*types.Transaction, error) {
+		return c.blockchain.SendInput(ctx, signer, inputBytes)
+	})
 }
 
 // Send the DApp address to the DApp contract with the DAppAddressRelay contract.
 // This function waits until the transaction is added to a block and return the input index.
 func (c *DevClient) SendDAppAddress(ctx context.Context) (int, error) {
+	return c.send(ctx, func(signer *bind.TransactOpts) (*types.Transaction, error) {
+		return c.blockchain.SendDAppAddress(ctx, signer)
+	})
+}
+
+func (c *DevClient) encodeInput(input any) ([]byte, error) {
+	inputBytes, ok := input.([]byte)
+	if !ok {
+		var err error
+		inputBytes, err = c.codecManager.encode(input)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return inputBytes, nil
+}
+
+func (c *DevClient) send(ctx context.Context,
+	op func(signer *bind.TransactOpts) (*types.Transaction, error)) (
+	int, error) {
+
 	privateKey, err := blockchain.MnemonicToPrivateKey(c.Mnemonic, c.AccountIndex)
 	if err != nil {
 		return 0, err
@@ -186,7 +187,7 @@ func (c *DevClient) SendDAppAddress(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	tx, err := c.blockchain.SendDAppAddress(ctx, signer)
+	tx, err := op(signer)
 	if err != nil {
 		return 0, err
 	}
