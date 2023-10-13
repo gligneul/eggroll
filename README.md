@@ -26,7 +26,7 @@ In the main function, you should call the `eggroll.Roll` function to start the r
 <!---
 cat ./examples/template/dapp/main.go
 -->
-```
+```go
 type TemplateContract struct {
 	eggroll.DefaultContract
 }
