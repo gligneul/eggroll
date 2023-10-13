@@ -175,6 +175,32 @@ func (c *DevClient) SendInput(ctx context.Context, input any) (int, error) {
 	return inputIndex, nil
 }
 
+// Send the DApp address to the DApp contract with the DAppAddressRelay contract.
+// This function waits until the transaction is added to a block and return the input index.
+func (c *DevClient) SendDAppAddress(ctx context.Context) (int, error) {
+	privateKey, err := blockchain.MnemonicToPrivateKey(c.Mnemonic, c.AccountIndex)
+	if err != nil {
+		return 0, err
+	}
+	signer, err := c.blockchain.CreateSigner(ctx, privateKey)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := c.blockchain.SendDAppAddress(ctx, signer, c.DAppAddress)
+	if err != nil {
+		return 0, err
+	}
+	err = c.blockchain.WaitForTransaction(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	inputIndex, err := c.blockchain.GetInputIndex(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	return inputIndex, nil
+}
+
 //
 // Reader functions
 //

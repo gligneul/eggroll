@@ -25,8 +25,9 @@ import (
 // Implements blockchain client for Ethereum using go-ethereum.
 // This struct provides methods that are specific for the Cartesi Rollups.
 type ETHClient struct {
-	client   *ethclient.Client
-	inputBox *InputBox
+	client           *ethclient.Client
+	dappAddressRelay *DAppAddressRelay
+	inputBox         *InputBox
 }
 
 // Create new ETH client.
@@ -35,13 +36,18 @@ func NewETHClient(endpoint string) (*ETHClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum: %v", err)
 	}
+	dappAddressRelay, err := NewDAppAddressRelay(AddressDAppAddressRelay, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to DAppAddressRelaya contract: %v", err)
+	}
 	inputBox, err := NewInputBox(AddressInputBox, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}
 	ethClient := &ETHClient{
-		client:   client,
-		inputBox: inputBox,
+		client:           client,
+		dappAddressRelay: dappAddressRelay,
+		inputBox:         inputBox,
 	}
 	return ethClient, nil
 }
@@ -55,6 +61,19 @@ func (c *ETHClient) SendInput(
 	tx, err := c.inputBox.AddInput(signer, dappAddress, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add input: %v", err)
+	}
+	return tx, nil
+}
+
+// Send dapp address with the dapp address relay contract.
+func (c *ETHClient) SendDAppAddress(
+	ctx context.Context, signer *bind.TransactOpts, dappAddress common.Address,
+) (
+	*types.Transaction, error,
+) {
+	tx, err := c.dappAddressRelay.RelayDAppAddress(signer, dappAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send dapp address: %v", err)
 	}
 	return tx, nil
 }
