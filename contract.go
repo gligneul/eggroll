@@ -75,9 +75,13 @@ func Roll(contract Contract) {
 			err = fmt.Errorf("invalid input type")
 		}
 
-		returnPayload, ok := return_.([]byte)
-		if !ok {
-			returnPayload, err = codecManager.encode(return_)
+		var returnPayload []byte
+		if return_ != nil {
+			var ok bool
+			returnPayload, ok = return_.([]byte)
+			if !ok {
+				returnPayload, err = codecManager.encode(return_)
+			}
 		}
 
 		if err != nil {
