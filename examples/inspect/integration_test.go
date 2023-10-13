@@ -11,7 +11,7 @@ import (
 
 const testTimeout = 300 * time.Second
 
-func TestTemplate(t *testing.T) {
+func TestInspect(t *testing.T) {
 	tester := eggtest.NewIntegrationTester(t)
 	defer tester.Close()
 
