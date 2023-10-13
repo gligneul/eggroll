@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -50,6 +52,20 @@ func (c *InspectClient) Inspect(ctx context.Context, payload []byte) (*InspectRe
 		if err != nil {
 			return nil, fmt.Errorf("failed to read body: %v", err)
 		}
+
+		if resp.StatusCode == http.StatusBadRequest &&
+			strings.Contains(string(body), "concurrent call in session") {
+
+			// This is an unpredictable error on the inspect
+			// server, so we wait for a bit and retry
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+				return c.Inspect(ctx, payload)
+			}
+		}
+
 		msg := "inspect error (status %v): %v"
 		return nil, fmt.Errorf(msg, resp.StatusCode, string(body))
 	}
