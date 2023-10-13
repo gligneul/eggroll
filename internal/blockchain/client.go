@@ -28,6 +28,7 @@ type ETHClient struct {
 	dappAddress      common.Address
 	client           *ethclient.Client
 	dappAddressRelay *DAppAddressRelay
+	etherPortal      *EtherPortal
 	inputBox         *InputBox
 }
 
@@ -41,6 +42,10 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to DAppAddressRelaya contract: %v", err)
 	}
+	etherPortal, err := NewEtherPortal(AddressEtherPortal, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to EtherPortal contract: %v", err)
+	}
 	inputBox, err := NewInputBox(AddressInputBox, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
@@ -49,6 +54,7 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 		dappAddress:      dappAddress,
 		client:           client,
 		dappAddressRelay: dappAddressRelay,
+		etherPortal:      etherPortal,
 		inputBox:         inputBox,
 	}
 	return ethClient, nil
@@ -76,12 +82,25 @@ func (c *ETHClient) SendDAppAddress(ctx context.Context, signer *bind.TransactOp
 	return tx, nil
 }
 
+// Send funds to the Ether portal.
+func (c *ETHClient) SendEther(ctx context.Context, signer *bind.TransactOpts, input []byte) (
+	*types.Transaction, error) {
+
+	tx, err := c.etherPortal.DepositEther(signer, c.dappAddress, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send dapp address: %v", err)
+	}
+	return tx, nil
+}
+
 // Create a signer from a private key.
-// This should only be used in a development environment.
-func (c *ETHClient) CreateSigner(ctx context.Context, privateKey *ecdsa.PrivateKey,
-) (
-	*bind.TransactOpts, error,
-) {
+// Receives the value to be sent in the transaction (in wei).
+// Since this function requires a private key, it should only be used in a
+// development environment.
+func (c *ETHClient) CreateSigner(
+	ctx context.Context, privateKey *ecdsa.PrivateKey, value *big.Int) (
+	*bind.TransactOpts, error) {
+
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -109,7 +128,7 @@ func (c *ETHClient) CreateSigner(ctx context.Context, privateKey *ecdsa.PrivateK
 		return nil, fmt.Errorf("failed to create transactor: %v", err)
 	}
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)
+	auth.Value = value
 	auth.GasLimit = uint64(300000)
 	auth.GasPrice = gasPrice
 

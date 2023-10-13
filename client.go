@@ -6,6 +6,7 @@ package eggroll
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -150,32 +151,50 @@ func (c *DevClient) SendInput(ctx context.Context, input any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return c.send(ctx, func(signer *bind.TransactOpts) (*types.Transaction, error) {
-		return c.blockchain.SendInput(ctx, signer, inputBytes)
-	})
+	return c.send(ctx, big.NewInt(0),
+		func(signer *bind.TransactOpts) (*types.Transaction, error) {
+			return c.blockchain.SendInput(ctx, signer, inputBytes)
+		},
+	)
 }
 
 // Send the DApp address to the DApp contract with the DAppAddressRelay contract.
 // This function waits until the transaction is added to a block and return the input index.
 func (c *DevClient) SendDAppAddress(ctx context.Context) (int, error) {
-	return c.send(ctx, func(signer *bind.TransactOpts) (*types.Transaction, error) {
-		return c.blockchain.SendDAppAddress(ctx, signer)
-	})
+	return c.send(ctx, big.NewInt(0),
+		func(signer *bind.TransactOpts) (*types.Transaction, error) {
+			return c.blockchain.SendDAppAddress(ctx, signer)
+		},
+	)
+}
+
+// Send Ether to the Ether portal. This function also receives an optional input.
+// If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
+// This function waits until the transaction is added to a block and return the input index.
+func (c *DevClient) SendEther(ctx context.Context, value *big.Int, input any) (int, error) {
+	inputBytes, err := c.encodeInput(input)
+	if err != nil {
+		return 0, err
+	}
+	return c.send(ctx, value,
+		func(signer *bind.TransactOpts) (*types.Transaction, error) {
+			return c.blockchain.SendEther(ctx, signer, inputBytes)
+		},
+	)
 }
 
 func (c *DevClient) encodeInput(input any) ([]byte, error) {
-	inputBytes, ok := input.([]byte)
-	if !ok {
-		var err error
-		inputBytes, err = c.codecManager.encode(input)
-		if err != nil {
-			return nil, err
-		}
+	if input == nil {
+		return nil, nil
 	}
-	return inputBytes, nil
+	inputBytes, ok := input.([]byte)
+	if ok {
+		return inputBytes, nil
+	}
+	return c.codecManager.encode(input)
 }
 
-func (c *DevClient) send(ctx context.Context,
+func (c *DevClient) send(ctx context.Context, value *big.Int,
 	op func(signer *bind.TransactOpts) (*types.Transaction, error)) (
 	int, error) {
 
@@ -183,7 +202,7 @@ func (c *DevClient) send(ctx context.Context,
 	if err != nil {
 		return 0, err
 	}
-	signer, err := c.blockchain.CreateSigner(ctx, privateKey)
+	signer, err := c.blockchain.CreateSigner(ctx, privateKey, value)
 	if err != nil {
 		return 0, err
 	}
