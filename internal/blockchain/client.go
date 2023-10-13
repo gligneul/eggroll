@@ -3,6 +3,9 @@
 
 package blockchain
 
+//go:generate abigen --abi abi/CartesiDApp.json --pkg blockchain --type CartesiDApp --out cartesidapp.go
+//go:generate abigen --abi abi/DAppAddressRelay.json --pkg blockchain --type DAppAddressRelay --out dappaddressrelay.go
+//go:generate abigen --abi abi/EtherPortal.json --pkg blockchain --type EtherPortal --out etherportal.go
 //go:generate abigen --abi abi/InputBox.json --pkg blockchain --type InputBox --out inputbox.go
 
 import (
