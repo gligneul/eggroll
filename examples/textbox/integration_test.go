@@ -18,20 +18,20 @@ func TestTextBox(t *testing.T) {
 	tester := eggtest.NewIntegrationTester(t)
 	defer tester.Close()
 
-	client, err := eggroll.NewDevClient()
+	client, err := eggroll.NewDevClient(Codecs())
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
 
 	inputs := []any{
-		Append{Value: "egg"},
-		Append{Value: "roll"},
+		&Append{Value: "egg"},
+		&Append{Value: "roll"},
 	}
 	sendInputsAndVerifyState(t, client, inputs, "eggroll")
 
 	inputs = []any{
-		Clear{},
-		Append{Value: "hi"},
+		&Clear{},
+		&Append{Value: "hi"},
 	}
 	sendInputsAndVerifyState(t, client, inputs, "hi")
 }
@@ -45,7 +45,7 @@ func sendInputsAndVerifyState(t *testing.T, client *eggroll.DevClient,
 	var lastInputIndex int
 	for _, input := range inputs {
 		var err error
-		lastInputIndex, err = client.SendInputJSON(ctx, input)
+		lastInputIndex, err = client.SendInput(ctx, input)
 		if err != nil {
 			t.Fatalf("failed to send input: %v", err)
 		}
@@ -56,7 +56,11 @@ func sendInputsAndVerifyState(t *testing.T, client *eggroll.DevClient,
 		t.Fatalf("failed to wait for input: %v", err)
 	}
 
-	if string(r.Result) != expectedState {
-		t.Fatalf("invalid state: '%v'; expected '%v'", string(r.Result), expectedState)
+	textBox, ok := r.DecodeReturn().(*TextBox)
+	if !ok {
+		t.Fatalf("expected TextBox value")
+	}
+	if textBox.Value != expectedState {
+		t.Fatalf("invalid value %v; expected %v", textBox.Value, expectedState)
 	}
 }

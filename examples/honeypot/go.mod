@@ -4,7 +4,7 @@ go 1.21.1
 
 require (
 	github.com/ethereum/go-ethereum v1.13.2
-	github.com/gligneul/eggroll v0.0.0-20231011232454-31d69e66398c
+	github.com/gligneul/eggroll v0.0.0-20231013101209-ecf8effae5ba
 	github.com/holiman/uint256 v1.2.3
 )
 

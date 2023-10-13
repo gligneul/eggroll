@@ -12,28 +12,25 @@ import (
 
 type TextBoxContract struct {
 	eggroll.DefaultContract
-	TextBox string
+	textbox.TextBox
 }
 
-func (c *TextBoxContract) Decoders() []eggroll.Decoder {
-	return []eggroll.Decoder{
-		eggroll.NewJSONDecoder[textbox.Clear](),
-		eggroll.NewJSONDecoder[textbox.Append](),
-	}
+func (c *TextBoxContract) Codecs() []eggroll.Codec {
+	return textbox.Codecs()
 }
 
-func (c *TextBoxContract) Advance(env *eggroll.Env, input any) ([]byte, error) {
-	switch input := input.(type) {
+func (c *TextBoxContract) Advance(env *eggroll.Env) (any, error) {
+	switch input := env.DecodeInput().(type) {
 	case *textbox.Clear:
 		env.Logln("received input clear")
-		c.TextBox = ""
+		c.TextBox.Value = ""
 	case *textbox.Append:
 		env.Logf("received input append with '%v'\n", input.Value)
-		c.TextBox += input.Value
+		c.TextBox.Value += input.Value
 	default:
-		return nil, fmt.Errorf("invalid input")
+		return nil, fmt.Errorf("invalid input: %v", input)
 	}
-	return []byte(c.TextBox), nil
+	return &c.TextBox, nil
 }
 
 func main() {

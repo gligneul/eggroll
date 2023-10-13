@@ -16,21 +16,19 @@ type HoneypotContract struct {
 	eggroll.DefaultContract
 }
 
-func (c HoneypotContract) Decoders() []eggroll.Decoder {
-	return []eggroll.Decoder{
-		eggroll.NewJSONDecoder[honeypot.Withdraw](),
-	}
+func (c HoneypotContract) Codecs() []eggroll.Codec {
+	return honeypot.Codecs()
 }
 
-func (c *HoneypotContract) Advance(env *eggroll.Env, input any) ([]byte, error) {
+func (c *HoneypotContract) Advance(env *eggroll.Env) (any, error) {
 	if deposit := env.Deposit(); deposit != nil {
 		return c.handleDeposit(env, deposit)
 	}
 
-	return c.handleInput(env, input)
+	return c.handleInput(env, env.DecodeInput())
 }
 
-func (c *HoneypotContract) handleDeposit(env *eggroll.Env, deposit wallets.Deposit) ([]byte, error) {
+func (c *HoneypotContract) handleDeposit(env *eggroll.Env, deposit wallets.Deposit) (any, error) {
 	switch deposit := env.Deposit().(type) {
 	case *wallets.EtherDeposit:
 		env.Logf("received deposit: %v\n", deposit)
@@ -45,7 +43,7 @@ func (c *HoneypotContract) handleDeposit(env *eggroll.Env, deposit wallets.Depos
 	}
 }
 
-func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) ([]byte, error) {
+func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) (any, error) {
 	if env.Sender() != honeypot.Owner {
 		// Ignore inputs that are not from honeypot.Owner
 		return nil, fmt.Errorf("ignoring input from %v", env.Sender())
@@ -61,13 +59,15 @@ func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) ([]byte, err
 		return c.getBalance(env), nil
 
 	default:
-		return nil, fmt.Errorf("invalid input")
+		return nil, fmt.Errorf("invalid input: %v", input)
 	}
 }
 
-func (c *HoneypotContract) getBalance(env *eggroll.Env) []byte {
+func (c *HoneypotContract) getBalance(env *eggroll.Env) *honeypot.Honeypot {
 	ownerBalance := env.EtherBalanceOf(honeypot.Owner)
-	return ownerBalance.Bytes()
+	return &honeypot.Honeypot{
+		Balance: &ownerBalance,
+	}
 }
 
 func main() {
