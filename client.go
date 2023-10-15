@@ -27,7 +27,7 @@ type ClientConfig struct {
 
 // The client interacts with the DApp contract off-chain.
 type Client struct {
-	config       ClientConfig
+	ClientConfig
 	codecManager *codecManager
 	reader       *reader.GraphQLReader
 	inspect      *reader.InspectClient
@@ -41,7 +41,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 		return nil, err
 	}
 	client := &Client{
-		config:       config,
+		ClientConfig: config,
 		codecManager: newCodecManager(config.Codecs),
 		reader:       reader.NewGraphQLReader(config.GraphqlEndpoint),
 		inspect:      reader.NewInspectClient(config.InspectEndpoint),
