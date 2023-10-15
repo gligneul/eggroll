@@ -38,11 +38,34 @@ func GetSunodoComposeProject() (string, error) {
 	return project, nil
 }
 
+// Check if sunodo is running in no-backend moode.
+func IsNoBackendRunning() (bool, error) {
+	cmd := exec.Command("docker", "compose", "ls")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	output, err := cmd.Output()
+	if err != nil {
+		msg := "failed to run docker compose ls: %v: %v"
+		return false, fmt.Errorf(msg, err, stderr.String())
+	}
+	return strings.Contains(string(output), "sunodo-node"), nil
+}
+
 // Get the DApp address from the running Anvil container.
 func GetDAppAddress() (niladdr common.Address, err error) {
-	project, err := GetSunodoComposeProject()
+	noBackend, err := IsNoBackendRunning()
 	if err != nil {
 		return niladdr, err
+	}
+
+	var project string
+	if noBackend {
+		project = "sunodo-node"
+	} else {
+		project, err = GetSunodoComposeProject()
+		if err != nil {
+			return niladdr, err
+		}
 	}
 
 	// Read deployment file from anvil docker container
