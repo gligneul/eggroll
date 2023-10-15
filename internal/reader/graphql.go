@@ -3,6 +3,8 @@
 
 package reader
 
+//go:generate go run github.com/Khan/genqlient
+
 import (
 	"context"
 	"fmt"
@@ -14,7 +16,25 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gligneul/eggroll/eggtypes"
 )
+
+// Error when an object is not found.
+type NotFound struct {
+	typeName string
+}
+
+func (e NotFound) Error() string {
+	return fmt.Sprintf("%v not found", e.typeName)
+}
+
+// Given the GraphQL error message, check whether the error should be NotFound.
+func checkNotFound(typeName string, err error) error {
+	if strings.HasSuffix(err.Error(), "not found\n") {
+		return NotFound{typeName}
+	}
+	return err
+}
 
 // Read the rollups state by connecting to the rollups node GraphQL API.
 type GraphQLReader struct {
@@ -30,7 +50,9 @@ func NewGraphQLReader(endpoint string) *GraphQLReader {
 }
 
 // Get an input from the rollups node.
-func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
+func (r *GraphQLReader) AdvanceResult(ctx context.Context, index int) (
+	*eggtypes.AdvanceResult, error) {
+
 	_ = `# @genqlient
 	query getInput($inputIndex: Int!) {
 	  input(index: $inputIndex) {
@@ -72,11 +94,24 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 		return nil, checkNotFound("input", err)
 	}
 
-	var input Input
-	input.Index = index
-	input.Status = resp.Input.Status
+	status, err := convertAdvanceStatus(resp.Input.Status)
+	if err != nil {
+		return nil, err
+	}
 
-	input.Payload, err = hexutil.Decode(resp.Input.Payload)
+	var reports []eggtypes.Report
+	for _, edge := range resp.Input.Reports.Edges {
+		var report eggtypes.Report
+		report.InputIndex = index
+		report.OutputIndex = edge.Node.Index
+		report.Payload, err = hexutil.Decode(edge.Node.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode report payload: %v", err)
+		}
+		reports = append(reports, report)
+	}
+
+	payload, err := hexutil.Decode(resp.Input.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode payload: %v", err)
 	}
@@ -85,21 +120,20 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode msgSender: %v", err)
 	}
-	input.Sender = common.Address(sender)
 
-	input.BlockNumber, err = strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
+	blockNumber, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode block number: %v", err)
 	}
 
-	timestamp, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
+	blockTimestamp, err := strconv.ParseInt(resp.Input.BlockNumber, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode timestmap: %v", err)
 	}
-	input.BlockTimestamp = time.Unix(timestamp, 0)
 
+	var vouchers []eggtypes.Voucher
 	for _, edge := range resp.Input.Vouchers.Edges {
-		var voucher Voucher
+		var voucher eggtypes.Voucher
 		voucher.InputIndex = index
 		voucher.OutputIndex = edge.Node.Index
 		destination, err := hexutil.Decode(edge.Node.Destination)
@@ -111,40 +145,52 @@ func (r *GraphQLReader) Input(ctx context.Context, index int) (*Input, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode voucher payload: %v", err)
 		}
-		input.Vouchers = append(input.Vouchers, voucher)
+		vouchers = append(vouchers, voucher)
 	}
 
+	var notices []eggtypes.Notice
 	for _, edge := range resp.Input.Notices.Edges {
-		var notice Notice
+		var notice eggtypes.Notice
 		notice.InputIndex = index
 		notice.OutputIndex = edge.Node.Index
 		notice.Payload, err = hexutil.Decode(edge.Node.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode notice payload: %v", err)
 		}
-		input.Notices = append(input.Notices, notice)
+		notices = append(notices, notice)
 	}
 
-	for _, edge := range resp.Input.Reports.Edges {
-		var report Report
-		report.InputIndex = index
-		report.OutputIndex = edge.Node.Index
-		report.Payload, err = hexutil.Decode(edge.Node.Payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode report payload: %v", err)
-		}
-		input.Reports = append(input.Reports, report)
+	result := &eggtypes.AdvanceResult{
+		Result: eggtypes.Result{
+			Status:  status,
+			Reports: reports,
+		},
+		Index:          index,
+		Payload:        payload,
+		Sender:         common.Address(sender),
+		BlockNumber:    blockNumber,
+		BlockTimestamp: time.Unix(blockTimestamp, 0),
+		Vouchers:       vouchers,
+		Notices:        notices,
 	}
 
-	return &input, nil
+	return result, nil
 }
 
-// Given the GraphQL error message, check whether the error should be NotFound.
-func checkNotFound(typeName string, err error) error {
-	if strings.HasSuffix(err.Error(), "not found\n") {
-		return NotFound{typeName}
+func convertAdvanceStatus(s CompletionStatus) (eggtypes.CompletionStatus, error) {
+	statusMap := map[CompletionStatus]eggtypes.CompletionStatus{
+		CompletionStatusUnprocessed:                eggtypes.CompletionStatusUnprocessed,
+		CompletionStatusAccepted:                   eggtypes.CompletionStatusAccepted,
+		CompletionStatusRejected:                   eggtypes.CompletionStatusRejected,
+		CompletionStatusException:                  eggtypes.CompletionStatusException,
+		CompletionStatusMachineHalted:              eggtypes.CompletionStatusMachineHalted,
+		CompletionStatusCycleLimitExceeded:         eggtypes.CompletionStatusCycleLimitExceeded,
+		CompletionStatusTimeLimitExceeded:          eggtypes.CompletionStatusTimeLimitExceeded,
+		CompletionStatusPayloadLengthLimitExceeded: eggtypes.CompletionStatusPayloadLengthLimitExceeded,
 	}
-	return err
+	status, ok := statusMap[s]
+	if !ok {
+		return status, fmt.Errorf("invalid completion status: %v", s)
+	}
+	return status, nil
 }
-
-//go:generate go run github.com/Khan/genqlient

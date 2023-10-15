@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gligneul/eggroll/eggtypes"
 )
 
 // Client for the reader node inspect API.
@@ -30,7 +31,8 @@ func NewInspectClient(endpoint string) *InspectClient {
 }
 
 // Send a inspect request with the given payload.
-func (c *InspectClient) Inspect(ctx context.Context, payload []byte) (*InspectResult, error) {
+func (c *InspectClient) Inspect(ctx context.Context, payload []byte) (
+	*eggtypes.InspectResult, error) {
 
 	// Prepare the request
 	req, err := http.NewRequest(http.MethodPost, c.endpoint, bytes.NewBuffer(payload))
@@ -86,35 +88,37 @@ func (c *InspectClient) Inspect(ctx context.Context, payload []byte) (*InspectRe
 	if err != nil {
 		return nil, err
 	}
-	var reports []Report
+	var reports []eggtypes.Report
 	for _, jsonReport := range jsonResponse.Reports {
 		payload, err := hexutil.Decode(jsonReport.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode report payload: %v", err)
 		}
-		report := Report{
+		report := eggtypes.Report{
 			Payload: payload,
 		}
 		reports = append(reports, report)
 	}
-	result := &InspectResult{
-		Status:              status,
-		Reports:             reports,
+	result := &eggtypes.InspectResult{
+		Result: eggtypes.Result{
+			Status:  status,
+			Reports: reports,
+		},
 		ProcessedInputCount: jsonResponse.ProcessedInputCount,
 	}
 	return result, nil
 }
 
-func convertInspectStatus(str string) (CompletionStatus, error) {
-	statusMap := map[string]CompletionStatus{
-		"Unprocessed":                CompletionStatusUnprocessed,
-		"Accepted":                   CompletionStatusAccepted,
-		"Rejected":                   CompletionStatusRejected,
-		"Exception":                  CompletionStatusException,
-		"Machine_halted":             CompletionStatusMachineHalted,
-		"CycleLimitExceeded":         CompletionStatusCycleLimitExceeded,
-		"TimeLimitExceeded":          CompletionStatusTimeLimitExceeded,
-		"PayloadLengthLimitExceeded": CompletionStatusPayloadLengthLimitExceeded,
+func convertInspectStatus(str string) (eggtypes.CompletionStatus, error) {
+	statusMap := map[string]eggtypes.CompletionStatus{
+		"Unprocessed":                eggtypes.CompletionStatusUnprocessed,
+		"Accepted":                   eggtypes.CompletionStatusAccepted,
+		"Rejected":                   eggtypes.CompletionStatusRejected,
+		"Exception":                  eggtypes.CompletionStatusException,
+		"Machine_halted":             eggtypes.CompletionStatusMachineHalted,
+		"CycleLimitExceeded":         eggtypes.CompletionStatusCycleLimitExceeded,
+		"TimeLimitExceeded":          eggtypes.CompletionStatusTimeLimitExceeded,
+		"PayloadLengthLimitExceeded": eggtypes.CompletionStatusPayloadLengthLimitExceeded,
 	}
 	status, ok := statusMap[str]
 	if !ok {

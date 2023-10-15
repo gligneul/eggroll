@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package blockchain
+package eggeth
 
 import (
 	"crypto/ecdsa"
@@ -11,7 +11,7 @@ import (
 )
 
 func testKey(t *testing.T, mnemonic string, account uint32, expected *ecdsa.PrivateKey) {
-	key, err := MnemonicToPrivateKey(mnemonic, account)
+	key, err := mnemonicToPrivateKey(mnemonic, account)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,60 +1,127 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-// A high-level framework for Cartesi Rollups in Go.
+// A high-level framework for Cartesi rollups in Go.
 package eggroll
 
 import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll/internal/blockchain"
+	"github.com/gligneul/eggroll/eggeth"
 	"github.com/gligneul/eggroll/internal/rollups"
 	"github.com/gligneul/eggroll/wallets"
+	"github.com/holiman/uint256"
 )
 
-// Contract that advances the dapp state.
+// Read from the rollups environment.
+// This interface will be passed to the contract inspect method.
+type EnvReader interface {
+
+	// Get the raw input bytes.
+	RawInput() []byte
+
+	// Decode the input using the codecs.
+	// If fails, return the error in the place of the value.
+	DecodeInput() any
+
+	// Get the DApp address.
+	// The address is initialized after the contract receives an input from
+	// the AddressRelay contract.
+	DAppAddress() *common.Address
+
+	// Call fmt.Sprintf, print the log, and store the result in the rollups state.
+	// It is possible to retrieve this log in the DApp client.
+	Logf(format string, a ...any)
+
+	// Call fmt.Sprint, print the log, and store the result in the rollups state.
+	// It is possible to retrieve this log in the DApp client.
+	Log(a ...any)
+
+	// Call fmt.Sprintf, print the log, try to store the result in the rollups state, and exit.
+	// It is possible to retrieve this log in the DApp client.
+	Fatalf(format string, a ...any)
+
+	// Call fmt.Sprint, print the log, try to store the result in the rollups state, and exit.
+	// It is possible to retrieve this log in the DApp client.
+	Fatal(a ...any)
+
+	// Return the list of addresses that have assets.
+	EtherAddresses() []common.Address
+
+	// Return the balance of the given address.
+	EtherBalanceOf(address common.Address) uint256.Int
+}
+
+// Read and write the rollups environment.
+// This interface will be passed to the contract advance method.
+type Env interface {
+	EnvReader
+
+	// Get the Metadata for the current input.
+	Metadata() *rollups.Metadata
+
+	// Get the deposit for the current input if it came from a portal.
+	Deposit() wallets.Deposit
+
+	// Get the original sender for the current input.
+	// If the input sender was a portal, this function returns the address that called the portal.
+	Sender() common.Address
+
+	// Transfer the given amount of funds from source to destination.
+	// Return error if the source doesn't have enough funds.
+	EtherTransfer(src common.Address, dst common.Address, value *uint256.Int) error
+
+	// Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
+	// Return the voucher index.
+	// Return error if the address doesn't have enough assets.
+	EtherWithdraw(address common.Address, value *uint256.Int) (int, error)
+
+	// Send a voucher. Return the voucher's index.
+	Voucher(destination common.Address, payload []byte) int
+
+	// Send a notice. Return the notice's index.
+	Notice(payload []byte) int
+}
+
+// The Contract is the on-chain part of a rollups DApp.
+// EggRoll uses the contract's codecs to encode the input and return values.
+// For the advance and inspect methods, if the return value is []byte, return
+// the raw bytes.
+// If the call returns an error, EggRoll rejects the input.
 type Contract interface {
 
+	// Advance the contract state.
+	Advance(env Env) (any, error)
+
+	// Inspect the contract state.
+	Inspect(env EnvReader) (any, error)
+
 	// Get the codecs required by the contract.
-	// Codecs are used to decode inputs and encode returns.
 	Codecs() []Codec
-
-	// Advance the state with the given input, returning the advance result.
-	// EggRoll uses the contract's codecs to encode the return value.
-	// If the return value is []byte, return the raw bytes.
-	// If the call returns an error, EggRoll rejects the input.
-	Advance(env *Env) (any, error)
-
-	// Inspect the state with the given input, returning the inspect result.
-	// EggRoll uses the contract's codecs to encode the return value.
-	// If the return value is []byte, return the raw bytes.
-	// If the call returns an error, EggRoll rejects the input.
-	Inspect(env *Env) (any, error)
 }
 
 // DefaultContract provides a default implementation for optional contract methods.
 type DefaultContract struct{}
+
+// Reject inspect request.
+func (_ DefaultContract) Inspect(env EnvReader) (any, error) {
+	return nil, fmt.Errorf("inspect not supported")
+}
 
 // Return empty list of codecs.
 func (_ *DefaultContract) Codecs() []Codec {
 	return nil
 }
 
-// Reject inspect request.
-func (_ DefaultContract) Inspect(env *Env) (any, error) {
-	return nil, fmt.Errorf("inspect not supported")
-}
-
-// Start the Cartesi Rollups for the contract.
+// Start the Cartesi rollups for the contract.
 // This function doesn't return and exits if there is an error.
 func Roll(contract Contract) {
 	rollupsAPI := rollups.NewRollupsHTTP()
-	reporter := newReporter(rollupsAPI)
 	codecManager := newCodecManager(contract.Codecs())
-	env := newEnv(reporter, rollupsAPI, codecManager)
+	env := newEnv(rollupsAPI, codecManager)
 	walletMap := map[common.Address]wallets.Wallet{
-		blockchain.AddressEtherPortal: env.etherWallet,
+		eggeth.AddressEtherPortal: env.etherWallet,
 	}
 
 	status := rollups.FinishStatusAccept
@@ -95,9 +162,8 @@ func Roll(contract Contract) {
 	}
 }
 
-// Handle the advance input from the rollups API.
 func handleAdvance(
-	env *Env,
+	env *env,
 	contract Contract,
 	walletMap map[common.Address]wallets.Wallet,
 	input *rollups.AdvanceInput,
@@ -105,7 +171,7 @@ func handleAdvance(
 	var deposit wallets.Deposit
 	var rawInput []byte
 
-	if input.Metadata.Sender == blockchain.AddressDAppAddressRelay {
+	if input.Metadata.Sender == eggeth.AddressDAppAddressRelay {
 		return nil, handleDAppAddressRelay(env, input.Payload)
 	}
 
@@ -125,8 +191,7 @@ func handleAdvance(
 	return contract.Advance(env)
 }
 
-// Handle the input from the DAppAddressRelay.
-func handleDAppAddressRelay(env *Env, payload []byte) error {
+func handleDAppAddressRelay(env *env, payload []byte) error {
 	if len(payload) != 20 {
 		return fmt.Errorf("invalid len from DAppAddressRelay %v", len(payload))
 	}
@@ -136,9 +201,8 @@ func handleDAppAddressRelay(env *Env, payload []byte) error {
 	return nil
 }
 
-// Handle the inspect input from the rollups API.
 func handleInspect(
-	env *Env,
+	env *env,
 	contract Contract,
 	input *rollups.InspectInput,
 ) (any, error) {

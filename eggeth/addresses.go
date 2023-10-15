@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package blockchain
+package eggeth
 
 import "github.com/ethereum/go-ethereum/common"
 
