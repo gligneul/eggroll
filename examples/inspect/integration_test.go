@@ -18,17 +18,17 @@ func TestInspect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	client, err := eggroll.NewDevClient(nil)
+	client, _, err := eggroll.NewDevClient(ctx, nil)
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
 	response, err := client.Inspect(ctx, []byte("eggroll"))
 	if err != nil {
 		t.Fatalf("failed to inspect: %v", err)
 	}
-	if string(response.RawReturn) != "eggroll" {
-		t.Fatalf("wrong return: %v", string(response.RawReturn))
+	return_ := string(response.RawReturn())
+	if return_ != "eggroll" {
+		t.Fatalf("wrong return: %v", return_)
 	}
 	if response.ProcessedInputCount != 0 {
 		t.Fatalf("wrong input count: %v", response.ProcessedInputCount)

@@ -1,6 +1,3 @@
-// Copyright (c) Gabriel de Quadros Ligneul
-// SPDX-License-Identifier: MIT (see LICENSE)
-
 package main
 
 import (
@@ -20,7 +17,7 @@ func (c HoneypotContract) Codecs() []eggroll.Codec {
 	return honeypot.Codecs()
 }
 
-func (c *HoneypotContract) Advance(env *eggroll.Env) (any, error) {
+func (c *HoneypotContract) Advance(env eggroll.Env) (any, error) {
 	if deposit := env.Deposit(); deposit != nil {
 		return c.handleDeposit(env, deposit)
 	}
@@ -28,7 +25,7 @@ func (c *HoneypotContract) Advance(env *eggroll.Env) (any, error) {
 	return c.handleInput(env, env.DecodeInput())
 }
 
-func (c *HoneypotContract) handleDeposit(env *eggroll.Env, deposit wallets.Deposit) (any, error) {
+func (c *HoneypotContract) handleDeposit(env eggroll.Env, deposit wallets.Deposit) (any, error) {
 	switch deposit := env.Deposit().(type) {
 	case *wallets.EtherDeposit:
 		env.Logf("received deposit: %v\n", deposit)
@@ -43,7 +40,7 @@ func (c *HoneypotContract) handleDeposit(env *eggroll.Env, deposit wallets.Depos
 	}
 }
 
-func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) (any, error) {
+func (c *HoneypotContract) handleInput(env eggroll.Env, input any) (any, error) {
 	if env.Sender() != honeypot.Owner {
 		// Ignore inputs that are not from honeypot.Owner
 		return nil, fmt.Errorf("ignoring input from %v", env.Sender())
@@ -51,6 +48,7 @@ func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) (any, error)
 
 	switch input := input.(type) {
 	case *honeypot.Withdraw:
+		fmt.Printf(">> %#v\n", input)
 		_, err := env.EtherWithdraw(honeypot.Owner, input.Value)
 		if err != nil {
 			return nil, err
@@ -63,7 +61,7 @@ func (c *HoneypotContract) handleInput(env *eggroll.Env, input any) (any, error)
 	}
 }
 
-func (c *HoneypotContract) getBalance(env *eggroll.Env) *honeypot.Honeypot {
+func (c *HoneypotContract) getBalance(env eggroll.Env) *honeypot.Honeypot {
 	ownerBalance := env.EtherBalanceOf(honeypot.Owner)
 	return &honeypot.Honeypot{
 		Balance: &ownerBalance,

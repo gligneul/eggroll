@@ -1,6 +1,3 @@
-// Copyright (c) Gabriel de Quadros Ligneul
-// SPDX-License-Identifier: MIT (see LICENSE)
-
 package textbox
 
 import (
@@ -9,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gligneul/eggroll"
+	"github.com/gligneul/eggroll/eggeth"
 	"github.com/gligneul/eggroll/eggtest"
 )
 
@@ -18,7 +16,10 @@ func TestTextBox(t *testing.T) {
 	tester := eggtest.NewIntegrationTester(t)
 	defer tester.Close()
 
-	client, err := eggroll.NewDevClient(Codecs())
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	client, signer, err := eggroll.NewDevClient(ctx, Codecs())
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -27,36 +28,34 @@ func TestTextBox(t *testing.T) {
 		&Append{Value: "egg"},
 		&Append{Value: "roll"},
 	}
-	sendInputsAndVerifyState(t, client, inputs, "eggroll")
+	sendInputsAndVerifyState(t, ctx, client, signer, inputs, "eggroll")
 
 	inputs = []any{
 		&Clear{},
 		&Append{Value: "hi"},
 	}
-	sendInputsAndVerifyState(t, client, inputs, "hi")
+	sendInputsAndVerifyState(t, ctx, client, signer, inputs, "hi")
 }
 
-func sendInputsAndVerifyState(t *testing.T, client *eggroll.DevClient,
-	inputs []any, expectedState string) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
+func sendInputsAndVerifyState(
+	t *testing.T, ctx context.Context, client *eggroll.Client,
+	signer eggeth.Signer, inputs []any, expectedState string) {
 
 	var lastInputIndex int
 	for _, input := range inputs {
 		var err error
-		lastInputIndex, err = client.SendInput(ctx, input)
+		lastInputIndex, err = client.SendInput(ctx, signer, input)
 		if err != nil {
 			t.Fatalf("failed to send input: %v", err)
 		}
 	}
 
-	r, err := client.WaitFor(ctx, lastInputIndex)
+	result, err := client.WaitFor(ctx, lastInputIndex)
 	if err != nil {
 		t.Fatalf("failed to wait for input: %v", err)
 	}
 
-	textBox, ok := r.DecodeReturn().(*TextBox)
+	textBox, ok := client.DecodeReturn(result).(*TextBox)
 	if !ok {
 		t.Fatalf("expected TextBox value")
 	}

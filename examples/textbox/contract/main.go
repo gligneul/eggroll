@@ -1,6 +1,3 @@
-// Copyright (c) Gabriel de Quadros Ligneul
-// SPDX-License-Identifier: MIT (see LICENSE)
-
 package main
 
 import (
@@ -19,10 +16,10 @@ func (c *TextBoxContract) Codecs() []eggroll.Codec {
 	return textbox.Codecs()
 }
 
-func (c *TextBoxContract) Advance(env *eggroll.Env) (any, error) {
+func (c *TextBoxContract) Advance(env eggroll.Env) (any, error) {
 	switch input := env.DecodeInput().(type) {
 	case *textbox.Clear:
-		env.Logln("received input clear")
+		env.Log("received input clear")
 		c.TextBox.Value = ""
 	case *textbox.Append:
 		env.Logf("received input append with '%v'\n", input.Value)
