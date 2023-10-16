@@ -110,7 +110,7 @@ func (_ DefaultContract) Inspect(env EnvReader) (any, error) {
 }
 
 // Return empty list of codecs.
-func (_ *DefaultContract) Codecs() []Codec {
+func (_ DefaultContract) Codecs() []Codec {
 	return nil
 }
 

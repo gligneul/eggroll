@@ -1,3 +1,13 @@
----
 title: "EggRoll 🐣🛼"
 base_path: /eggroll
+colors:
+  main: "#034E7B"
+navigation:
+  - path: docs/template.md
+  - path: docs/contract.md
+  - path: docs/client.md
+  - path: docs/outputs.md
+  - path: docs/logging.md
+  - path: docs/codecs.md
+  - path: docs/assets.md
+  - path: docs/testing.md
