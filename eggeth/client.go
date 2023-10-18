@@ -29,6 +29,10 @@ type Signer interface {
 // Implements blockchain client for Ethereum using go-ethereum.
 // This struct provides methods that are specific for the Cartesi Rollups.
 type ETHClient struct {
+
+	// Gas limit when building transactions.
+	GasLimit uint64
+
 	client           *ethclient.Client
 	dappAddress      common.Address
 	dappAddressRelay *DAppAddressRelay
@@ -55,6 +59,7 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}
 	ethClient := &ETHClient{
+		GasLimit:         10_000_000,
 		client:           client,
 		dappAddress:      dappAddress,
 		dappAddressRelay: dappAddressRelay,
@@ -132,7 +137,7 @@ func (c *ETHClient) prepareTransaction(ctx context.Context, signer Signer, txVal
 	}
 	tx.Nonce = big.NewInt(int64(nonce))
 	tx.Value = txValue
-	tx.GasLimit = uint64(300000) // XXX review this hardcoded value
+	tx.GasLimit = c.GasLimit
 	tx.GasPrice = gasPrice
 	return tx, nil
 }
@@ -142,7 +147,7 @@ func (c *ETHClient) waitForTransaction(ctx context.Context, tx *types.Transactio
 	for {
 		_, isPending, err := c.client.TransactionByHash(ctx, tx.Hash())
 		if err != nil {
-			return fmt.Errorf("Fail to recover transaction: %v", err)
+			return fmt.Errorf("fail to recover transaction: %v", err)
 		}
 		if !isPending {
 			break
@@ -161,7 +166,7 @@ func (c *ETHClient) waitForTransaction(ctx context.Context, tx *types.Transactio
 func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (int, error) {
 	err := c.waitForTransaction(ctx, tx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to wait for transaction: %v", err)
+		return 0, err
 	}
 	receipt, err := c.client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
