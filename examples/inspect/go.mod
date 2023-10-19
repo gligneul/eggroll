@@ -2,7 +2,7 @@ module inspect
 
 go 1.21.1
 
-require github.com/gligneul/eggroll v0.0.0-20231015222414-217e18d67cbc
+require github.com/gligneul/eggroll v0.0.0-20231019181542-b3657fb58810
 
 require (
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
