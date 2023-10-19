@@ -176,8 +176,12 @@ func (c *Client) DecodeReturn(result interface{ RawReturn() []byte }) any {
 }
 
 // Send an inspect request.
-func (c *Client) Inspect(ctx context.Context, payload []byte) (*eggtypes.InspectResult, error) {
-	return c.inspect.Inspect(ctx, payload)
+func (c *Client) Inspect(ctx context.Context, input any) (*eggtypes.InspectResult, error) {
+	inputBytes, err := c.encodeInput(input)
+	if err != nil {
+		return nil, err
+	}
+	return c.inspect.Inspect(ctx, inputBytes)
 }
 
 //
