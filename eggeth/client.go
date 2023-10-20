@@ -59,7 +59,7 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}
 	ethClient := &ETHClient{
-		GasLimit:         10_000_000,
+		GasLimit:         30_000_000, // max gas
 		client:           client,
 		dappAddress:      dappAddress,
 		dappAddressRelay: dappAddressRelay,
@@ -171,6 +171,9 @@ func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (i
 	receipt, err := c.client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return 0, fmt.Errorf("failed to get receipt: %v", err)
+	}
+	if receipt.Status == 0 {
+		return 0, fmt.Errorf("transaction failed")
 	}
 	for _, log := range receipt.Logs {
 		if log.Address != AddressInputBox {
