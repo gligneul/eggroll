@@ -19,21 +19,31 @@ import (
 type MnemonicSigner struct {
 	privateKey *ecdsa.PrivateKey
 	chainId    *big.Int
+	mnemonic   string
 }
 
 // Create a new mnemonic signer.
 func NewMnemonicSigner(mnemonic string, accountIndex uint32, chainId *big.Int) (
 	s *MnemonicSigner, err error) {
 
-	privateKey, err := mnemonicToPrivateKey(mnemonic, accountIndex)
-	if err != nil {
+	signer := &MnemonicSigner{
+		privateKey: nil,
+		chainId:    chainId,
+		mnemonic:   mnemonic,
+	}
+	if err = signer.SetAccount(accountIndex); err != nil {
 		return nil, err
 	}
-	signer := &MnemonicSigner{
-		privateKey,
-		chainId,
-	}
 	return signer, nil
+}
+
+func (s *MnemonicSigner) SetAccount(accountIndex uint32) error {
+	privateKey, err := mnemonicToPrivateKey(s.mnemonic, accountIndex)
+	if err != nil {
+		return err
+	}
+	s.privateKey = privateKey
+	return nil
 }
 
 func (s *MnemonicSigner) MakeTransactor() (*bind.TransactOpts, error) {
