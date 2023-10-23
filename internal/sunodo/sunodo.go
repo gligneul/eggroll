@@ -49,6 +49,14 @@ func IsNoBackendRunning() (bool, error) {
 
 // Get the DApp address from the running Anvil container.
 func GetDAppAddress() (niladdr common.Address, err error) {
+	isRunning, err := IsRunning()
+	if err != nil {
+		return niladdr, err
+	}
+	if !isRunning {
+		return niladdr, fmt.Errorf("sunodo is not running")
+	}
+
 	noBackend, err := IsNoBackendRunning()
 	if err != nil {
 		return niladdr, err
