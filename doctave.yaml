@@ -11,3 +11,4 @@ navigation:
   - path: docs/codecs.md
   - path: docs/assets.md
   - path: docs/testing.md
+  - path: docs/faq.md
