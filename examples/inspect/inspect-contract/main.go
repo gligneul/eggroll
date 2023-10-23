@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/gligneul/eggroll"
+	"github.com/gligneul/eggroll/pkg/eggroll"
 )
 
 type Contract struct {

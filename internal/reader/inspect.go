@@ -8,13 +8,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/gligneul/eggroll/eggtypes"
 )
 
 // Client for the reader node inspect API.

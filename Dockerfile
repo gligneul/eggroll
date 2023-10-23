@@ -27,15 +27,8 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 
-COPY eggeth eggeth
-COPY eggtest eggtest
-COPY eggtypes eggtypes
+COPY pkg pkg
 COPY internal internal
-COPY wallets wallets
-COPY client.go .
-COPY codec.go .
-COPY env.go .
-COPY contract.go .
 
 # runtime stage: produces final image that will be executed
 FROM --platform=linux/riscv64 riscv64/ubuntu:22.04 as runtime

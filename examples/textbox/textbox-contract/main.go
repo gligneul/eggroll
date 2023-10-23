@@ -5,20 +5,19 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/gligneul/eggroll"
+	eggroll2 "github.com/gligneul/eggroll/pkg/eggroll"
 )
 
 type Contract struct {
-	eggroll.DefaultContract
+	eggroll2.DefaultContract
 	TextBox
 }
 
-func (c *Contract) Codecs() []eggroll.Codec {
+func (c *Contract) Codecs() []eggroll2.Codec {
 	return Codecs()
 }
 
-func (c *Contract) Advance(env eggroll.Env) (any, error) {
+func (c *Contract) Advance(env eggroll2.Env) (any, error) {
 	switch input := env.DecodeInput().(type) {
 	case *Clear:
 		env.Log("received input clear")
@@ -33,5 +32,5 @@ func (c *Contract) Advance(env eggroll.Env) (any, error) {
 }
 
 func main() {
-	eggroll.Roll(&Contract{})
+	eggroll2.Roll(&Contract{})
 }

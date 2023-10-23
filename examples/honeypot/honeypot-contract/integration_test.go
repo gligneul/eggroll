@@ -5,14 +5,14 @@ package main
 
 import (
 	"context"
+	"github.com/gligneul/eggroll/pkg/eggroll"
+	"github.com/gligneul/eggroll/pkg/eggtest"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll"
-	"github.com/gligneul/eggroll/eggtest"
 	"github.com/holiman/uint256"
 )
 

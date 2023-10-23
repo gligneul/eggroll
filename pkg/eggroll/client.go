@@ -6,12 +6,12 @@ package eggroll
 import (
 	"context"
 	"fmt"
+	eggeth2 "github.com/gligneul/eggroll/pkg/eggeth"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll/eggeth"
-	"github.com/gligneul/eggroll/eggtypes"
 	"github.com/gligneul/eggroll/internal/reader"
 	"github.com/gligneul/eggroll/internal/sunodo"
 )
@@ -31,12 +31,12 @@ type Client struct {
 	codecManager *codecManager
 	reader       *reader.GraphQLReader
 	inspect      *reader.InspectClient
-	eth          *eggeth.ETHClient
+	eth          *eggeth2.ETHClient
 }
 
 // Create a new client with the given config.
 func NewClient(config ClientConfig) (*Client, error) {
-	ethClient, err := eggeth.NewETHClient(config.ProviderEndpoint, config.DAppAddress)
+	ethClient, err := eggeth2.NewETHClient(config.ProviderEndpoint, config.DAppAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 // Create a new client for local development.
 // Connects to the Rollups Node and the Ethereum Node setup by sunodo.
 // Return a signer that uses the Foundry's test mnemonic to send transactions.
-func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth.Signer, error) {
+func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth2.Signer, error) {
 	dappAddress, err := sunodo.GetDAppAddress()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get DApp address: %v", err)
@@ -73,7 +73,7 @@ func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth.Signer, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get chain id: %v", err)
 	}
-	signer, err := eggeth.NewMnemonicSigner(
+	signer, err := eggeth2.NewMnemonicSigner(
 		"test test test test test test test test test test test junk", 0, chainId)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create signer: %v", err)
@@ -88,7 +88,7 @@ func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth.Signer, 
 // Send the input to the DApp contract.
 // If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendInput(ctx context.Context, signer eggeth.Signer, input any) (int, error) {
+func (c *Client) SendInput(ctx context.Context, signer eggeth2.Signer, input any) (int, error) {
 	inputBytes, err := c.encodeInput(input)
 	if err != nil {
 		return 0, err
@@ -98,14 +98,14 @@ func (c *Client) SendInput(ctx context.Context, signer eggeth.Signer, input any)
 
 // Send the DApp address to the DApp contract with the DAppAddressRelay contract.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth.Signer) (int, error) {
+func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth2.Signer) (int, error) {
 	return c.eth.SendDAppAddress(ctx, signer)
 }
 
 // Send Ether to the Ether portal. This function also receives an optional input.
 // If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendEther(ctx context.Context, signer eggeth.Signer, txValue *big.Int, input any) (
+func (c *Client) SendEther(ctx context.Context, signer eggeth2.Signer, txValue *big.Int, input any) (
 	int, error) {
 
 	inputBytes, err := c.encodeInput(input)

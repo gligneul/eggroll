@@ -5,11 +5,10 @@ package main
 
 import (
 	"context"
+	"github.com/gligneul/eggroll/pkg/eggroll"
+	"github.com/gligneul/eggroll/pkg/eggtest"
 	"testing"
 	"time"
-
-	"github.com/gligneul/eggroll"
-	"github.com/gligneul/eggroll/eggtest"
 )
 
 const testTimeout = 300 * time.Second

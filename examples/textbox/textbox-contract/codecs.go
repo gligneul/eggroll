@@ -3,7 +3,9 @@
 
 package main
 
-import "github.com/gligneul/eggroll"
+import (
+	"github.com/gligneul/eggroll/pkg/eggroll"
+)
 
 type Append struct {
 	Value string

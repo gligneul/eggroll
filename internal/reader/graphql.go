@@ -8,6 +8,7 @@ package reader
 import (
 	"context"
 	"fmt"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/gligneul/eggroll/eggtypes"
 )
 
 // Error when an object is not found.

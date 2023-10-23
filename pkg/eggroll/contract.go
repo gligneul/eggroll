@@ -6,11 +6,11 @@ package eggroll
 
 import (
 	"fmt"
+	"github.com/gligneul/eggroll/pkg/eggeth"
+	"github.com/gligneul/eggroll/pkg/eggwallets"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll/eggeth"
 	"github.com/gligneul/eggroll/internal/rollups"
-	"github.com/gligneul/eggroll/wallets"
 	"github.com/holiman/uint256"
 )
 

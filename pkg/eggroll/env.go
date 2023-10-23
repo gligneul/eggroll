@@ -5,13 +5,13 @@ package eggroll
 
 import (
 	"fmt"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
+	wallets2 "github.com/gligneul/eggroll/pkg/eggwallets"
 	"log"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gligneul/eggroll/eggtypes"
 	"github.com/gligneul/eggroll/internal/rollups"
-	"github.com/gligneul/eggroll/wallets"
 	"github.com/holiman/uint256"
 )
 
@@ -20,12 +20,12 @@ type env struct {
 	logger       *log.Logger
 	rollups      *rollups.RollupsHTTP
 	codecManager *codecManager
-	etherWallet  *wallets.EtherWallet
+	etherWallet  *wallets2.EtherWallet
 	dappAddress  *common.Address
 
 	// The fields below should be set for each input.
 	metadata *rollups.Metadata
-	deposit  wallets.Deposit
+	deposit  wallets2.Deposit
 	rawInput []byte
 }
 
@@ -38,11 +38,11 @@ func newEnv(rollups *rollups.RollupsHTTP, codecManager *codecManager) *env {
 		logger:       log.New(os.Stdout, "", 0),
 		rollups:      rollups,
 		codecManager: codecManager,
-		etherWallet:  wallets.NewEtherWallet(),
+		etherWallet:  wallets2.NewEtherWallet(),
 	}
 }
 
-func (e *env) setInputData(metadata *rollups.Metadata, deposit wallets.Deposit, rawInput []byte) {
+func (e *env) setInputData(metadata *rollups.Metadata, deposit wallets2.Deposit, rawInput []byte) {
 	e.metadata = metadata
 	e.deposit = deposit
 	e.rawInput = rawInput
@@ -127,7 +127,7 @@ func (e *env) Metadata() *rollups.Metadata {
 	return e.metadata
 }
 
-func (e *env) Deposit() wallets.Deposit {
+func (e *env) Deposit() wallets2.Deposit {
 	return e.deposit
 }
 
