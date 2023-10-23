@@ -14,3 +14,32 @@ To use EggRoll, you also need [sunodo](https://github.com/sunodo/sunodo/) versio
 ## Documentation
 
 Check the [documentation site](https://gligneul.github.io/eggroll) for more info.
+
+## Development
+
+The commands below are for EggRoll developers.
+EggRoll users should check the documentation site above.
+
+### Building
+
+```
+go build
+```
+
+### Unit testing
+
+```
+go test
+```
+
+### Integration testing
+
+```
+EGGTEST_RUN_INTEGRATION=true EGGTEST_VERBOSE=true go test -p 1 -v ./examples/...
+```
+
+### Running documentation server
+
+```
+doctave serve
+```
