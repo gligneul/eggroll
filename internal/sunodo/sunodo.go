@@ -19,10 +19,10 @@ import (
 func GetMachineHash() (nilhash common.Hash, err error) {
 	bytes, err := os.ReadFile(".sunodo/image/hash")
 	if err != nil {
-		return nilhash, fmt.Errorf("failed to read sunodo image")
+		return nilhash, fmt.Errorf("failed to read sunodo image: %v", err)
 	}
 	if len(bytes) != common.HashLength {
-		return nilhash, fmt.Errorf("invalid hash size at .sunodo/image/hash")
+		return nilhash, fmt.Errorf("invalid hash size at .sunodo/image/hash: %v", err)
 	}
 	return (common.Hash)(bytes), nil
 }
@@ -39,13 +39,10 @@ func GetSunodoComposeProject() (string, error) {
 
 // Check if sunodo is running in no-backend moode.
 func IsNoBackendRunning() (bool, error) {
-	cmd := exec.Command("docker", "compose", "ls")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	output, err := cmd.Output()
+	output, err := exec.Command("docker", "compose", "ls").CombinedOutput()
 	if err != nil {
 		msg := "failed to run docker compose ls: %v: %v"
-		return false, fmt.Errorf(msg, err, stderr.String())
+		return false, fmt.Errorf(msg, err, string(output))
 	}
 	return strings.Contains(string(output), "sunodo-node"), nil
 }
@@ -91,6 +88,16 @@ func GetDAppAddress() (niladdr common.Address, err error) {
 	}
 
 	return common.HexToAddress(deployment.Address), nil
+}
+
+// Check if sunodo is running.
+func IsRunning() (bool, error) {
+	output, err := exec.Command("docker", "compose", "ls").CombinedOutput()
+	if err != nil {
+		msg := "failed to run docker compose ls: %v: %v"
+		return false, fmt.Errorf(msg, err, string(output))
+	}
+	return strings.Contains(string(output), "@sunodo/cli"), nil
 }
 
 // Execute the sunodo build command.

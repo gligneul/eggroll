@@ -62,19 +62,36 @@ var integrationMutex sync.Mutex
 // Create a new sunodo tester.
 // It is necessary to Close the tester at the end of the test.
 func NewIntegrationTester(t *testing.T, opts *IntegrationTesterOpts) *IntegrationTester {
+	// Initialize opts with default value
 	if opts == nil {
 		opts = NewIntegrationTesterOpts()
 	}
+
+	// Skip tests if set
 	if opts.Skip {
 		t.Skip("skipping integration test")
 		return nil
 	}
+
+	// Check if sunodo is already running
+	running, err := sunodo.IsRunning()
+	if err != nil {
+		t.Fatalf("failed to check if sunodo is running: %v", err)
+	}
+	if running {
+		t.Fatalf("sunodo already running")
+	}
+
+	// Change current directly if necessary
 	if opts.Context != "." {
-		os.Chdir(opts.Context)
+		err := os.Chdir(opts.Context)
+		if err != nil {
+			t.Fatalf("change dir failed: %v", err)
+		}
 	}
 
 	t.Log("executing sunodo build")
-	err := sunodo.Build(opts.BuildTarget, opts.Verbose)
+	err = sunodo.Build(opts.BuildTarget, opts.Verbose)
 	if err != nil {
 		t.Fatalf("failed to execute sunodo build: %v", err)
 	}
