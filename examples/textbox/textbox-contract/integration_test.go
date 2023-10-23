@@ -1,4 +1,7 @@
-package textbox
+// Copyright (c) Gabriel de Quadros Ligneul
+// SPDX-License-Identifier: MIT (see LICENSE)
+
+package main
 
 import (
 	"context"
@@ -13,7 +16,12 @@ import (
 const testTimeout = 300 * time.Second
 
 func TestTextBox(t *testing.T) {
-	tester := eggtest.NewIntegrationTester(t)
+	opts := eggtest.NewIntegrationTesterOpts()
+	opts.LoadFromEnv()
+	opts.Context = "../../.."
+	opts.BuildTarget = "textbox-contract"
+
+	tester := eggtest.NewIntegrationTester(t, opts)
 	defer tester.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)

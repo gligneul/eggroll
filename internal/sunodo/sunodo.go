@@ -4,6 +4,7 @@
 package sunodo
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -20,11 +21,9 @@ func GetMachineHash() (nilhash common.Hash, err error) {
 	if err != nil {
 		return nilhash, fmt.Errorf("failed to read sunodo image")
 	}
-
 	if len(bytes) != common.HashLength {
 		return nilhash, fmt.Errorf("invalid hash size at .sunodo/image/hash")
 	}
-
 	return (common.Hash)(bytes), nil
 }
 
@@ -92,4 +91,77 @@ func GetDAppAddress() (niladdr common.Address, err error) {
 	}
 
 	return common.HexToAddress(deployment.Address), nil
+}
+
+// Execute the sunodo build command.
+func Build(target string, verbose bool) error {
+	args := []string{"build"}
+	if target != "" {
+		args = append(args, "--target", target)
+	}
+	cmd := exec.Command("sunodo", args...)
+	cmd.Stdout = os.Stdout
+	if verbose {
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("exec failed: %v", err)
+	}
+	return nil
+}
+
+// Session of a sunodo run.
+type Session struct {
+	cmd *exec.Cmd
+}
+
+func (s *Session) Close() error {
+	// Sending sigint directly to sunodo doesn't work.
+	// So, we get the PID of the docker-compose child process and kill it.
+	output, err := exec.Command("ps", "-o", "pid", "-C", "docker-compose").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to exec ps: %v: %v", err, output)
+	}
+
+	fields := strings.Fields(string(output))
+	if len(fields) < 2 {
+		return fmt.Errorf("failed to get docker-compose pid")
+	}
+
+	output, err = exec.Command("kill", "-2", fields[1]).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to exec kill: %v: %v", err, output)
+	}
+
+	return nil
+}
+
+// Execute the sunodo run command.
+func Run(verbose bool) (*Session, error) {
+	cmd := exec.Command("sunodo", "run")
+	if verbose {
+		cmd.Stderr = os.Stderr
+	}
+	outPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	ready := make(chan struct{})
+	go func() {
+		scanner := bufio.NewScanner(outPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line)
+			if strings.Contains(line, "Press Ctrl+C to stop the node") {
+				ready <- struct{}{}
+			}
+		}
+	}()
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("exec failed: %v", err)
+	}
+	<-ready
+
+	return &Session{cmd}, nil
 }

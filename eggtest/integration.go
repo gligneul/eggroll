@@ -5,126 +5,99 @@
 package eggtest
 
 import (
-	"bufio"
-	"errors"
 	"os"
-	"os/exec"
-	"strings"
 	"sync"
 	"testing"
+
+	"github.com/gligneul/eggroll/internal/sunodo"
 )
 
-// Use mutex to make sure only runs one test at a time
-var integrationMutex sync.Mutex
+// Integration test options.
+type IntegrationTesterOpts struct {
+
+	// Context of the sunodo Docker (default: ".").
+	Context string
+
+	// Target for sunodo build (default: "").
+	BuildTarget string
+
+	// If set, increases the verbosity of the test (default: false).
+	Verbose bool
+
+	// If set, skip the integration test (default: false).
+	Skip bool
+}
+
+// Create integration test options with the default values.
+func NewIntegrationTesterOpts() *IntegrationTesterOpts {
+	return &IntegrationTesterOpts{
+		Context:     ".",
+		BuildTarget: "",
+		Verbose:     false,
+		Skip:        false,
+	}
+}
+
+// Load the some of the integration test opts from environment variables.
+func (opts *IntegrationTesterOpts) LoadFromEnv() {
+	if os.Getenv("EGGTEST_SKIP_INTEGRATION") != "" {
+		opts.Skip = true
+	}
+	if os.Getenv("EGGTEST_VERBOSE") != "" {
+		opts.Verbose = true
+	}
+}
 
 // Use sunodo to run integration tests.
 // The tester will build the sunodo image, if necessary.
 // Then, it will start the DApp contract with sunodo run.
 type IntegrationTester struct {
 	*testing.T
-	cmd *exec.Cmd
+	session *sunodo.Session
 }
+
+// Use mutex to make sure only runs one test at a time
+var integrationMutex sync.Mutex
 
 // Create a new sunodo tester.
 // It is necessary to Close the tester at the end of the test.
-func NewIntegrationTester(t *testing.T) *IntegrationTester {
-	tester := &IntegrationTester{T: t}
-	if tester.imageExist() {
-		t.Log("image already exist; not building it again")
-	} else {
-		tester.sunodoBuild()
+func NewIntegrationTester(t *testing.T, opts *IntegrationTesterOpts) *IntegrationTester {
+	if opts == nil {
+		opts = NewIntegrationTesterOpts()
 	}
-	tester.sunodoRun()
+	if opts.Skip {
+		t.Skip("skipping integration test")
+		return nil
+	}
+	if opts.Context != "." {
+		os.Chdir(opts.Context)
+	}
+
+	t.Log("executing sunodo build")
+	err := sunodo.Build(opts.BuildTarget, opts.Verbose)
+	if err != nil {
+		t.Fatalf("failed to execute sunodo build: %v", err)
+	}
+
+	t.Log("executing sunodo run")
+	session, err := sunodo.Run(opts.Verbose)
+	if err != nil {
+		t.Fatalf("failed to execute sunodo run: %v", err)
+	}
+
+	tester := &IntegrationTester{
+		T:       t,
+		session: session,
+	}
 	integrationMutex.Lock()
 	return tester
 }
 
 // Close the tester.
 func (t *IntegrationTester) Close() error {
-	// Sending sigint directly to sunodo doesn't work.
-	// So, we get the PID of the docker-compose child process and kill it.
-	output, err := exec.Command("ps", "-o", "pid", "-C", "docker-compose").Output()
-	if err != nil {
-		t.Fatalf("failed to run ps: %v", err)
+	if err := t.session.Close(); err != nil {
+		t.Errorf("failed to close sunodo session: %v", err)
 	}
-
-	fields := strings.Fields(string(output))
-	if len(fields) < 2 {
-		t.Fatalf("failed to get docker-compose pid: %v", err)
-	}
-
-	_, err = exec.Command("kill", "-2", fields[1]).Output()
-	if err != nil {
-		t.Fatalf("failed to kill docker-compose")
-	}
-
-	t.cmd.Wait()
 	integrationMutex.Unlock()
 	return nil
-}
-
-func (t *IntegrationTester) imageExist() bool {
-	path := "./.sunodo/image/hash"
-	_, err := os.Stat(path)
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	t.Fatalf("unexpected error: %v", err)
-	return false
-}
-
-func (t *IntegrationTester) sunodoBuild() {
-	t.Log("running sunodo build")
-
-	output, err := exec.Command("sunodo", "build").CombinedOutput()
-	if err != nil {
-		t.Logf("failed to run sunodo build: %v", err)
-		t.Fatalf(string(output))
-	}
-}
-
-func (t *IntegrationTester) sunodoRun() {
-	t.Log("starting sunodo run")
-
-	t.cmd = exec.Command("sunodo", "run")
-
-	outPipe, err := t.cmd.StdoutPipe()
-	if err != nil {
-		t.Fatalf("failed to create stdout pipe: %v", err)
-	}
-
-	errPipe, err := t.cmd.StderrPipe()
-	if err != nil {
-		t.Fatalf("failed to create stdout pipe: %v", err)
-	}
-
-	go func() {
-		scanner := bufio.NewScanner(errPipe)
-		for scanner.Scan() {
-			line := scanner.Text()
-			t.Log(line)
-		}
-	}()
-
-	ready := make(chan struct{})
-
-	go func() {
-		scanner := bufio.NewScanner(outPipe)
-		for scanner.Scan() {
-			line := scanner.Text()
-			t.Log(line)
-			if strings.Contains(line, "Press Ctrl+C to stop the node") {
-				ready <- struct{}{}
-			}
-		}
-	}()
-
-	if err := t.cmd.Start(); err != nil {
-		t.Fatalf("failed to start command: %v", err)
-	}
-
-	<-ready
 }

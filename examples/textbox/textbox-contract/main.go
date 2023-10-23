@@ -1,27 +1,29 @@
+// Copyright (c) Gabriel de Quadros Ligneul
+// SPDX-License-Identifier: MIT (see LICENSE)
+
 package main
 
 import (
 	"fmt"
-	"textbox"
 
 	"github.com/gligneul/eggroll"
 )
 
-type TextBoxContract struct {
+type Contract struct {
 	eggroll.DefaultContract
-	textbox.TextBox
+	TextBox
 }
 
-func (c *TextBoxContract) Codecs() []eggroll.Codec {
-	return textbox.Codecs()
+func (c *Contract) Codecs() []eggroll.Codec {
+	return Codecs()
 }
 
-func (c *TextBoxContract) Advance(env eggroll.Env) (any, error) {
+func (c *Contract) Advance(env eggroll.Env) (any, error) {
 	switch input := env.DecodeInput().(type) {
-	case *textbox.Clear:
+	case *Clear:
 		env.Log("received input clear")
 		c.TextBox.Value = ""
-	case *textbox.Append:
+	case *Append:
 		env.Logf("received input append with '%v'\n", input.Value)
 		c.TextBox.Value += input.Value
 	default:
@@ -31,5 +33,5 @@ func (c *TextBoxContract) Advance(env eggroll.Env) (any, error) {
 }
 
 func main() {
-	eggroll.Roll(&TextBoxContract{})
+	eggroll.Roll(&Contract{})
 }

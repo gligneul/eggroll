@@ -22,7 +22,7 @@ jobs:
       with:
         submodules: recursive
 
-    # Add support for more platforms with QEMU (necessary to run RISC-V containers)
+    # Add support for RISC-V containers.
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
 
@@ -36,8 +36,20 @@ jobs:
       with:
         node-version: 18
 
-    - name: Install sunodo
+    - name: Set up sunodo
       run: yarn global add @sunodo/cli
 
+    # Download the images in a previous step to avoid timing out the tests.
+    - name: Download sunodo Docker images
+      run: |
+        docker pull sunodo/devnet:1.1.0
+        docker pull cartesi/rollups-cli:1.0.2
+        docker pull sunodo/rollups-node:0.5.0
+        docker pull traefik:v2.10
+        docker pull postgres:13-alpine
+        docker pull redis:6-alpine
+
     - name: Test examples
-      run: ./internal/scripts/test-examples.sh -c
+      env:
+        EGGTEST_VERBOSE: true
+      run: go test -p 1 -v ./examples/...
