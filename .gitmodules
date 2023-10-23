@@ -1,3 +1,0 @@
-[submodule "examples/template"]
-	path = examples/template
-	url = git@github.com:gligneul/eggroll-template.git
