@@ -37,13 +37,13 @@ jobs:
         node-version: 18
 
     - name: Set up sunodo
-      run: yarn global add @sunodo/cli
+      run: yarn global add @sunodo/cli@0.9.3
 
     # Download the images in a previous step to avoid timing out the tests.
     - name: Download sunodo Docker images
       run: |
-        docker pull sunodo/devnet:1.1.0
         docker pull cartesi/rollups-cli:1.0.2
+        docker pull sunodo/devnet:1.1.1
         docker pull sunodo/rollups-node:0.5.0
         docker pull traefik:v2.10
         docker pull postgres:13-alpine
