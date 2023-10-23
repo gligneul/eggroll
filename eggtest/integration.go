@@ -40,12 +40,8 @@ func NewIntegrationTesterOpts() *IntegrationTesterOpts {
 
 // Load the some of the integration test opts from environment variables.
 func (opts *IntegrationTesterOpts) LoadFromEnv() {
-	if os.Getenv("EGGTEST_SKIP_INTEGRATION") != "" {
-		opts.Skip = true
-	}
-	if os.Getenv("EGGTEST_VERBOSE") != "" {
-		opts.Verbose = true
-	}
+	opts.Skip = os.Getenv("EGGTEST_RUN_INTEGRATION") == ""
+	opts.Verbose = os.Getenv("EGGTEST_VERBOSE") != ""
 }
 
 // Use sunodo to run integration tests.

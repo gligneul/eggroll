@@ -51,5 +51,6 @@ jobs:
 
     - name: Test examples
       env:
+        EGGTEST_RUN_INTEGRATION: true
         EGGTEST_VERBOSE: true
       run: go test -p 1 -v ./examples/...
