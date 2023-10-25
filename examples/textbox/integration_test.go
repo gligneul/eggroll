@@ -19,8 +19,8 @@ const testTimeout = 300 * time.Second
 func TestTextBox(t *testing.T) {
 	opts := eggtest.NewIntegrationTesterOpts()
 	opts.LoadFromEnv()
-	opts.Context = "../../.."
-	opts.BuildTarget = "textbox-contract"
+	opts.Context = "../.."
+	opts.BuildTarget = "textbox"
 
 	tester := eggtest.NewIntegrationTester(t, opts)
 	defer tester.Close()

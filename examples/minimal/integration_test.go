@@ -17,8 +17,8 @@ const testTimeout = 300 * time.Second
 func TestTemplate(t *testing.T) {
 	opts := eggtest.NewIntegrationTesterOpts()
 	opts.LoadFromEnv()
-	opts.Context = "../../.."
-	opts.BuildTarget = "minimal-contract"
+	opts.Context = "../.."
+	opts.BuildTarget = "minimal"
 
 	tester := eggtest.NewIntegrationTester(t, opts)
 	defer tester.Close()

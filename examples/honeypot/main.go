@@ -23,7 +23,7 @@ func init() {
 
 type Contract struct{}
 
-func (c Contract) Advance(env eggroll.Env, input []byte) error {
+func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 	unpacked, err := eggtypes.Unpack(input)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (c Contract) Advance(env eggroll.Env, input []byte) error {
 	}
 }
 
-func (c Contract) Inspect(env eggroll.EnvReader, input []byte) error {
+func (c *Contract) Inspect(env eggroll.EnvReader, input []byte) error {
 	sendBalance(env)
 	return nil
 }
@@ -79,5 +79,5 @@ func sendBalance(env eggroll.EnvReader) {
 }
 
 func main() {
-	eggroll.Roll(Contract{})
+	eggroll.Roll(&Contract{})
 }

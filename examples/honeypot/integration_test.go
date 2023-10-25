@@ -22,8 +22,8 @@ const testTimeout = 300 * time.Second
 func TestHoneypot(t *testing.T) {
 	opts := eggtest.NewIntegrationTesterOpts()
 	opts.LoadFromEnv()
-	opts.Context = "../../.."
-	opts.BuildTarget = "honeypot-contract"
+	opts.Context = "../.."
+	opts.BuildTarget = "honeypot"
 
 	tester := eggtest.NewIntegrationTester(t, opts)
 	defer tester.Close()

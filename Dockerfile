@@ -57,18 +57,18 @@ CMD ["/var/opt/cartesi-dapp/dapp"]
 
 FROM build-stage as honeypot-build-stage
 COPY examples/honeypot examples/honeypot
-RUN go build ./examples/honeypot/honeypot-contract
-FROM --platform=linux/riscv64 runtime as honeypot-contract
-COPY --from=honeypot-build-stage /opt/build/honeypot-contract dapp
+RUN go build ./examples/honeypot/
+FROM --platform=linux/riscv64 runtime as honeypot
+COPY --from=honeypot-build-stage /opt/build/honeypot dapp
 
 FROM build-stage as minimal-build-stage
 COPY examples/minimal examples/minimal
-RUN go build ./examples/minimal/minimal-contract
-FROM --platform=linux/riscv64 runtime as minimal-contract
-COPY --from=minimal-build-stage /opt/build/minimal-contract dapp
+RUN go build ./examples/minimal/
+FROM --platform=linux/riscv64 runtime as minimal
+COPY --from=minimal-build-stage /opt/build/minimal dapp
 
 FROM build-stage as textbox-build-stage
 COPY examples/textbox examples/textbox
-RUN go build ./examples/textbox/textbox-contract
-FROM --platform=linux/riscv64 runtime as textbox-contract
-COPY --from=textbox-build-stage /opt/build/textbox-contract dapp
+RUN go build ./examples/textbox/
+FROM --platform=linux/riscv64 runtime as textbox
+COPY --from=textbox-build-stage /opt/build/textbox dapp
