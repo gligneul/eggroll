@@ -133,21 +133,22 @@ type Session struct {
 func (s *Session) Close() error {
 	// Sending sigint directly to sunodo doesn't work.
 	// So, we get the PID of the docker-compose child process and kill it.
-	output, err := exec.Command("ps", "-o", "pid", "-C", "docker-compose").CombinedOutput()
+	dockerPid, err := procGetChild(s.cmd.Process.Pid)
 	if err != nil {
-		return fmt.Errorf("failed to exec ps: %v: %v", err, output)
+		return fmt.Errorf("failed to get docker pid: %v", err)
 	}
-
-	fields := strings.Fields(string(output))
-	if len(fields) < 2 {
-		return fmt.Errorf("failed to get docker-compose pid")
-	}
-
-	output, err = exec.Command("kill", "-2", fields[1]).CombinedOutput()
+	dockerComposePid, err := procGetChild(dockerPid)
 	if err != nil {
-		return fmt.Errorf("failed to exec kill: %v: %v", err, output)
+		return fmt.Errorf("failed to get docker compose pid: %v", err)
 	}
-
+	err = procInterrupt(dockerComposePid)
+	if err != nil {
+		return fmt.Errorf("failed to send interrupt to docker compose: %v", err)
+	}
+	err = procWait(dockerComposePid, 30)
+	if err != nil {
+		return fmt.Errorf("failed to wait for docker compose: %v", err)
+	}
 	return nil
 }
 
