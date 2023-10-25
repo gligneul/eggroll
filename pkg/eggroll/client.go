@@ -6,10 +6,11 @@ package eggroll
 import (
 	"context"
 	"fmt"
-	eggeth2 "github.com/gligneul/eggroll/pkg/eggeth"
-	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"math/big"
 	"time"
+
+	"github.com/gligneul/eggroll/pkg/eggeth"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/internal/reader"
@@ -18,7 +19,6 @@ import (
 
 // Configuration for the client struct.
 type ClientConfig struct {
-	Codecs           []Codec
 	DAppAddress      common.Address
 	GraphqlEndpoint  string
 	InspectEndpoint  string
@@ -28,21 +28,19 @@ type ClientConfig struct {
 // The client interacts with the DApp contract off-chain.
 type Client struct {
 	ClientConfig
-	codecManager *codecManager
-	reader       *reader.GraphQLReader
-	inspect      *reader.InspectClient
-	eth          *eggeth2.ETHClient
+	reader  *reader.GraphQLReader
+	inspect *reader.InspectClient
+	eth     *eggeth.ETHClient
 }
 
 // Create a new client with the given config.
 func NewClient(config ClientConfig) (*Client, error) {
-	ethClient, err := eggeth2.NewETHClient(config.ProviderEndpoint, config.DAppAddress)
+	ethClient, err := eggeth.NewETHClient(config.ProviderEndpoint, config.DAppAddress)
 	if err != nil {
 		return nil, err
 	}
 	client := &Client{
 		ClientConfig: config,
-		codecManager: newCodecManager(config.Codecs),
 		reader:       reader.NewGraphQLReader(config.GraphqlEndpoint),
 		inspect:      reader.NewInspectClient(config.InspectEndpoint),
 		eth:          ethClient,
@@ -53,13 +51,12 @@ func NewClient(config ClientConfig) (*Client, error) {
 // Create a new client for local development.
 // Connects to the Rollups Node and the Ethereum Node setup by sunodo.
 // Return a signer that uses the Foundry's test mnemonic to send transactions.
-func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth2.Signer, error) {
+func NewDevClient(ctx context.Context) (*Client, eggeth.Signer, error) {
 	dappAddress, err := sunodo.GetDAppAddress()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get DApp address: %v", err)
 	}
 	config := ClientConfig{
-		Codecs:           codecs,
 		DAppAddress:      dappAddress,
 		GraphqlEndpoint:  "http://localhost:8080/graphql",
 		InspectEndpoint:  "http://localhost:8080/inspect",
@@ -73,7 +70,7 @@ func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth2.Signer,
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get chain id: %v", err)
 	}
-	signer, err := eggeth2.NewMnemonicSigner(
+	signer, err := eggeth.NewMnemonicSigner(
 		"test test test test test test test test test test test junk", 0, chainId)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create signer: %v", err)
@@ -86,33 +83,24 @@ func NewDevClient(ctx context.Context, codecs []Codec) (*Client, eggeth2.Signer,
 //
 
 // Send the input to the DApp contract.
-// If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendInput(ctx context.Context, signer eggeth2.Signer, input any) (int, error) {
-	inputBytes, err := c.encodeInput(input)
-	if err != nil {
-		return 0, err
-	}
-	return c.eth.SendInput(ctx, signer, inputBytes)
+func (c *Client) SendInput(ctx context.Context, signer eggeth.Signer, payload []byte) (int, error) {
+	return c.eth.SendInput(ctx, signer, payload)
 }
 
 // Send the DApp address to the DApp contract with the DAppAddressRelay contract.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth2.Signer) (int, error) {
+func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth.Signer) (int, error) {
 	return c.eth.SendDAppAddress(ctx, signer)
 }
 
 // Send Ether to the Ether portal. This function also receives an optional input.
 // If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendEther(ctx context.Context, signer eggeth2.Signer, txValue *big.Int, input any) (
-	int, error) {
+func (c *Client) SendEther(
+	ctx context.Context, signer eggeth.Signer, txValue *big.Int, payload []byte) (int, error) {
 
-	inputBytes, err := c.encodeInput(input)
-	if err != nil {
-		return 0, err
-	}
-	return c.eth.SendEther(ctx, signer, txValue, inputBytes)
+	return c.eth.SendEther(ctx, signer, txValue, payload)
 }
 
 //
@@ -144,57 +132,28 @@ func (c *Client) WaitFor(ctx context.Context, inputIndex int) (*eggtypes.Advance
 }
 
 // Get the results starting from the given input index.
-func (c *Client) GetResults(ctx context.Context, inputIndex int) (
-	[]*eggtypes.AdvanceResult, error) {
-
-	var results []*eggtypes.AdvanceResult
-	for {
-		result, err := c.reader.AdvanceResult(ctx, inputIndex)
-		if err != nil {
-			if _, ok := err.(reader.NotFound); ok {
-				break
-			}
-			return nil, fmt.Errorf("failed to get result: %v", err)
-		}
-		if result.Status == eggtypes.CompletionStatusUnprocessed {
-			break
-		}
-		results = append(results, result)
-		inputIndex++
-	}
-	return results, nil
-}
-
-// Decode the return from a result.
-// The result can be either an advance result or an inspect result.
-func (c *Client) DecodeReturn(result interface{ RawReturn() []byte }) any {
-	return_ := result.RawReturn()
-	if return_ == nil {
-		return nil
-	}
-	return c.codecManager.decode(return_)
-}
+// func (c *Client) GetResults(ctx context.Context, inputIndex int) (
+// 	[]*eggtypes.AdvanceResult, error) {
+//
+// 	var results []*eggtypes.AdvanceResult
+// 	for {
+// 		result, err := c.reader.AdvanceResult(ctx, inputIndex)
+// 		if err != nil {
+// 			if _, ok := err.(reader.NotFound); ok {
+// 				break
+// 			}
+// 			return nil, fmt.Errorf("failed to get result: %v", err)
+// 		}
+// 		if result.Status == eggtypes.CompletionStatusUnprocessed {
+// 			break
+// 		}
+// 		results = append(results, result)
+// 		inputIndex++
+// 	}
+// 	return results, nil
+// }
 
 // Send an inspect request.
-func (c *Client) Inspect(ctx context.Context, input any) (*eggtypes.InspectResult, error) {
-	inputBytes, err := c.encodeInput(input)
-	if err != nil {
-		return nil, err
-	}
-	return c.inspect.Inspect(ctx, inputBytes)
-}
-
-//
-// Private functions
-//
-
-func (c *Client) encodeInput(input any) ([]byte, error) {
-	if input == nil {
-		return nil, nil
-	}
-	inputBytes, ok := input.([]byte)
-	if ok {
-		return inputBytes, nil
-	}
-	return c.codecManager.encode(input)
+func (c *Client) Inspect(ctx context.Context, payload []byte) (*eggtypes.InspectResult, error) {
+	return c.inspect.Inspect(ctx, payload)
 }

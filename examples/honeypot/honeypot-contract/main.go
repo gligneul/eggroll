@@ -5,8 +5,11 @@ package main
 
 import (
 	"fmt"
-	eggroll2 "github.com/gligneul/eggroll/pkg/eggroll"
-	wallets2 "github.com/gligneul/eggroll/pkg/eggwallets"
+
+	"github.com/gligneul/eggroll/pkg/eggroll"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
+	"github.com/gligneul/eggroll/pkg/eggwallets"
+	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -18,65 +21,63 @@ func init() {
 	Owner = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 }
 
-type Contract struct {
-	eggroll2.DefaultContract
-}
+type Contract struct{}
 
-func (c Contract) Codecs() []eggroll2.Codec {
-	return Codecs()
-}
-
-func (c *Contract) Advance(env eggroll2.Env) (any, error) {
-	if deposit := env.Deposit(); deposit != nil {
-		return c.handleDeposit(env, deposit)
+func (c Contract) Advance(env eggroll.Env, input []byte) error {
+	unpacked, err := eggtypes.Unpack(input)
+	if err != nil {
+		return err
 	}
+	switch input := unpacked.(type) {
+	case Deposit:
+		switch deposit := env.Deposit().(type) {
+		case *eggwallets.EtherDeposit:
+			env.Logf("received deposit: %v\n", deposit)
+			if env.Sender() != Owner {
+				// Transfer Ether deposits to Owner
+				env.EtherTransfer(env.Sender(), Owner, &deposit.Value)
+			}
+			sendBalance(env)
+			return nil
 
-	return c.handleInput(env, env.DecodeInput())
-}
+		default:
+			return fmt.Errorf("unsupported deposit: %v", deposit)
+		}
 
-func (c *Contract) handleDeposit(env eggroll2.Env, deposit wallets2.Deposit) (any, error) {
-	switch deposit := env.Deposit().(type) {
-	case *wallets2.EtherDeposit:
-		env.Logf("received deposit: %v\n", deposit)
+	case Withdraw:
 		if env.Sender() != Owner {
-			// Transfer Ether deposits to Owner
-			env.EtherTransfer(env.Sender(), Owner, &deposit.Value)
+			// Ignore inputs that are not from Owner
+			return fmt.Errorf("ignoring input from %v", env.Sender())
 		}
-		return c.getBalance(env), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported deposit: %v", deposit)
-	}
-}
-
-func (c *Contract) handleInput(env eggroll2.Env, input any) (any, error) {
-	if env.Sender() != Owner {
-		// Ignore inputs that are not from Owner
-		return nil, fmt.Errorf("ignoring input from %v", env.Sender())
-	}
-
-	switch input := input.(type) {
-	case *Withdraw:
-		fmt.Printf(">> %#v\n", input)
-		_, err := env.EtherWithdraw(Owner, input.Value)
+		// TODO remove uint256
+		v := new(uint256.Int)
+		v.SetFromBig(input.Value)
+		_, err := env.EtherWithdraw(Owner, v)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		env.Logf("withdraw %v\n", input.Value.ToBig().String())
-		return c.getBalance(env), nil
+		env.Logf("withdraw %v\n", input.Value)
+		sendBalance(env)
+		return nil
 
 	default:
-		return nil, fmt.Errorf("invalid input: %v", input)
+		return fmt.Errorf("unknown input: %T", input)
 	}
 }
 
-func (c *Contract) getBalance(env eggroll2.Env) *Honeypot {
+func (c Contract) Inspect(env eggroll.EnvReader, input []byte) error {
+	sendBalance(env)
+	return nil
+}
+
+func sendBalance(env eggroll.EnvReader) {
 	ownerBalance := env.EtherBalanceOf(Owner)
-	return &Honeypot{
-		Balance: &ownerBalance,
+	honeypot := Honeypot{
+		Balance: ownerBalance.ToBig(),
 	}
+	env.Report(honeypot.Pack())
 }
 
 func main() {
-	eggroll2.Roll(&Contract{})
+	eggroll.Roll(Contract{})
 }

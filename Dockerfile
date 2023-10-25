@@ -61,17 +61,11 @@ RUN go build ./examples/honeypot/honeypot-contract
 FROM --platform=linux/riscv64 runtime as honeypot-contract
 COPY --from=honeypot-build-stage /opt/build/honeypot-contract dapp
 
-FROM build-stage as inspect-build-stage
-COPY examples/inspect examples/inspect
-RUN go build ./examples/inspect/inspect-contract
-FROM --platform=linux/riscv64 runtime as inspect-contract
-COPY --from=inspect-build-stage /opt/build/inspect-contract dapp
-
-FROM build-stage as template-build-stage
-COPY examples/template examples/template
-RUN go build ./examples/template/template-contract
-FROM --platform=linux/riscv64 runtime as template-contract
-COPY --from=template-build-stage /opt/build/template-contract dapp
+FROM build-stage as minimal-build-stage
+COPY examples/minimal examples/minimal
+RUN go build ./examples/minimal/minimal-contract
+FROM --platform=linux/riscv64 runtime as minimal-contract
+COPY --from=minimal-build-stage /opt/build/minimal-contract dapp
 
 FROM build-stage as textbox-build-stage
 COPY examples/textbox examples/textbox

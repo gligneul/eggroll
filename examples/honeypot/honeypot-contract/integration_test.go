@@ -5,15 +5,16 @@ package main
 
 import (
 	"context"
-	"github.com/gligneul/eggroll/pkg/eggroll"
-	"github.com/gligneul/eggroll/pkg/eggtest"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/gligneul/eggroll/pkg/eggroll"
+	"github.com/gligneul/eggroll/pkg/eggtest"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/holiman/uint256"
 )
 
 const testTimeout = 300 * time.Second
@@ -30,7 +31,7 @@ func TestHoneypot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	client, signer, err := eggroll.NewDevClient(ctx, Codecs())
+	client, signer, err := eggroll.NewDevClient(ctx)
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
@@ -40,14 +41,15 @@ func TestHoneypot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to send dapp address: %v", err)
 	}
-	_, err = client.SendEther(ctx, signer, big.NewInt(100), nil)
+	deposit := Deposit{}
+	_, err = client.SendEther(ctx, signer, big.NewInt(100), deposit.Pack())
 	if err != nil {
 		t.Fatalf("failed to send dapp ether: %v", err)
 	}
-	input := &Withdraw{
-		Value: uint256.NewInt(50),
+	withdraw := Withdraw{
+		Value: big.NewInt(50),
 	}
-	index, err := client.SendInput(ctx, signer, input)
+	index, err := client.SendInput(ctx, signer, withdraw.Pack())
 	if err != nil {
 		t.Fatalf("failed to send withdraw: %v", err)
 	}
@@ -57,11 +59,11 @@ func TestHoneypot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to wait for result: %v", err)
 	}
-	honeypot, ok := client.DecodeReturn(result).(*Honeypot)
-	if !ok {
-		t.Fatalf("failed to convert return: %v", result)
+	honeypot, found := eggtypes.FindReport[Honeypot](result.Reports, HoneypotID)
+	if !found {
+		t.Fatalf("honeypot value not found")
 	}
-	if !honeypot.Balance.Eq(uint256.NewInt(50)) {
+	if honeypot.Balance.Cmp(big.NewInt(50)) != 0 {
 		t.Fatal("wrong honeypot balance")
 	}
 

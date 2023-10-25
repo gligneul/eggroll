@@ -5,10 +5,11 @@ package eggroll
 
 import (
 	"fmt"
-	"github.com/gligneul/eggroll/pkg/eggtypes"
-	wallets2 "github.com/gligneul/eggroll/pkg/eggwallets"
 	"log"
 	"os"
+
+	"github.com/gligneul/eggroll/pkg/eggtypes"
+	"github.com/gligneul/eggroll/pkg/eggwallets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/internal/rollups"
@@ -17,60 +18,42 @@ import (
 
 // Implementation of the Env and EnvReader interfaces.
 type env struct {
-	logger       *log.Logger
-	rollups      *rollups.RollupsHTTP
-	codecManager *codecManager
-	etherWallet  *wallets2.EtherWallet
-	dappAddress  *common.Address
+	logger      *log.Logger
+	rollups     *rollups.RollupsHTTP
+	etherWallet *eggwallets.EtherWallet
+	dappAddress *common.Address
 
 	// The fields below should be set for each input.
 	metadata *rollups.Metadata
-	deposit  wallets2.Deposit
-	rawInput []byte
+	deposit  eggwallets.Deposit
 }
 
 //
 // Internal methods
 //
 
-func newEnv(rollups *rollups.RollupsHTTP, codecManager *codecManager) *env {
+func newEnv(rollups *rollups.RollupsHTTP) *env {
 	return &env{
-		logger:       log.New(os.Stdout, "", 0),
-		rollups:      rollups,
-		codecManager: codecManager,
-		etherWallet:  wallets2.NewEtherWallet(),
+		logger:      log.New(os.Stdout, "", 0),
+		rollups:     rollups,
+		etherWallet: eggwallets.NewEtherWallet(),
 	}
 }
 
-func (e *env) setInputData(metadata *rollups.Metadata, deposit wallets2.Deposit, rawInput []byte) {
+func (e *env) setInputData(metadata *rollups.Metadata, deposit eggwallets.Deposit) {
 	e.metadata = metadata
 	e.deposit = deposit
-	e.rawInput = rawInput
 }
 
 func (e *env) setDAppAddress(address *common.Address) {
 	e.dappAddress = address
 }
 
-func (e *env) sendReturn(payload []byte) {
-	e.sendReport(eggtypes.ReportTagReturn, payload)
-}
-
-// Send a report. Exit if it fails.
-func (e *env) sendReport(tag eggtypes.ReportTag, payload []byte) {
-	payload, err := eggtypes.EncodeReport(tag, payload)
-	if err != nil {
-		e.logger.Fatalf("failed to encode report: %v", err)
-	}
-	if err := e.rollups.SendReport(payload); err != nil {
-		e.logger.Fatalf("failed to send report: %v\n", err)
-	}
-}
-
 // Log the message and send a report.
 func (e *env) log(message string) {
 	e.logger.Print(message)
-	e.sendReport(eggtypes.ReportTagLog, []byte(message))
+	log := eggtypes.Log{Message: message}
+	e.Report(log.Pack())
 }
 
 // Log the message, send a report, and exit.
@@ -83,16 +66,14 @@ func (e *env) fatal(message string) {
 // Implementation of EnvReader
 //
 
-func (e *env) RawInput() []byte {
-	return e.rawInput
-}
-
-func (e *env) DecodeInput() any {
-	return e.codecManager.decode(e.rawInput)
-}
-
 func (e *env) DAppAddress() *common.Address {
 	return e.dappAddress
+}
+
+func (e *env) Report(payload []byte) {
+	if err := e.rollups.SendReport(payload); err != nil {
+		e.logger.Fatalf("failed to send report: %v\n", err)
+	}
 }
 
 func (e *env) Logf(format string, a ...any) {
@@ -127,7 +108,7 @@ func (e *env) Metadata() *rollups.Metadata {
 	return e.metadata
 }
 
-func (e *env) Deposit() wallets2.Deposit {
+func (e *env) Deposit() eggwallets.Deposit {
 	return e.deposit
 }
 

@@ -4,6 +4,7 @@
 package eggtypes
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -34,27 +35,9 @@ type Result struct {
 	Reports []Report
 }
 
-// Get the raw return of the result.
-func (r *Result) RawReturn() []byte {
-	for _, report := range r.Reports {
-		tag, payload, err := DecodeReport(report.Payload)
-		if err == nil && tag == ReportTagReturn {
-			return payload
-		}
-	}
-	return nil
-}
-
-// Get the logs of the result.
-func (r *Result) Logs() []string {
-	var logs []string
-	for _, report := range r.Reports {
-		tag, payload, err := DecodeReport(report.Payload)
-		if err == nil && tag == ReportTagLog {
-			logs = append(logs, string(payload))
-		}
-	}
-	return logs
+// Get logs from the result.
+func (r *Result) Logs() []Log {
+	return FilterReports[Log](r.Reports, LogID)
 }
 
 // Result of an advance request.
@@ -110,31 +93,35 @@ type Report struct {
 	Payload     []byte
 }
 
-// The first byte of a report has a tag to identify its semantic.
-type ReportTag byte
-
-const (
-	ReportTagLog ReportTag = iota
-	ReportTagReturn
-	ReportTagLen
-)
-
-// Encode the tag and the report into a single payload.
-func EncodeReport(tag ReportTag, payload []byte) ([]byte, error) {
-	if len(payload) >= 1000<<10 { // 1000 Kb
-		return nil, fmt.Errorf("payload too large (%v bytes)", len(payload))
+// Filter the reports with the given id and unpack it into T.
+func FilterReports[T any](reports []Report, id [4]byte) []T {
+	var values []T
+	for _, r := range reports {
+		if bytes.HasPrefix(r.Payload, id[:]) {
+			v, err := Unpack(r.Payload)
+			if err != nil {
+				// This should never happen because the callee
+				// requested for an specific id.
+				panic(fmt.Errorf("error unpacking: %v", err))
+			}
+			values = append(values, v.(T))
+		}
 	}
-	return append([]byte{byte(tag)}, payload...), nil
+	return values
 }
 
-// Decode the report into tag and payload.
-func DecodeReport(payload []byte) (ReportTag, []byte, error) {
-	if len(payload) == 0 {
-		return 0, payload, fmt.Errorf("invalid report")
+// Find the report with the given id and unpack it into T.
+func FindReport[T any](reports []Report, id [4]byte) (empty T, found bool) {
+	for _, r := range reports {
+		if bytes.HasPrefix(r.Payload, id[:]) {
+			v, err := Unpack(r.Payload)
+			if err != nil {
+				// This should never happen because the callee
+				// requested for an specific id.
+				panic(fmt.Errorf("error unpacking: %v", err))
+			}
+			return v.(T), true
+		}
 	}
-	tag := payload[0]
-	if tag >= byte(ReportTagLen) {
-		return 0, payload, fmt.Errorf("invalid report tag %v", tag)
-	}
-	return ReportTag(tag), payload[1:], nil
+	return empty, false
 }

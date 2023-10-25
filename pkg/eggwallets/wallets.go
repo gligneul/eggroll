@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT (see LICENSE)
 
 // Wallets that manage assets in Cartesi Rollups Portals.
-package wallets
+package eggwallets
 
 import (
 	"fmt"
