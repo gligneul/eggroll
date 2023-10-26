@@ -48,14 +48,14 @@ func Pack(name string, args ...interface{}) ([]byte, error) {
 
 // Unpack the data into a Go value.
 func Unpack(data []byte) (any, error) {
+	if (len(data)-4)%32 != 0 {
+		return nil, fmt.Errorf("improperly formatted output: %x", data)
+	}
 	method, err := globalMetadata.abi.MethodById(data)
 	if err != nil {
 		return nil, err
 	}
-	if method == nil {
-		return nil, fmt.Errorf("method not found for %x", data[:4])
-	}
-	values, err := globalMetadata.abi.Unpack(method.Name, data[4:])
+	values, err := method.Inputs.Unpack(data[4:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack: %v", err)
 	}
@@ -90,13 +90,7 @@ func init() {
 	      }
 	    ],
 	    "name": "Log",
-	    "outputs": [
-	      {
-		"internalType": "string",
-		"name": "message",
-		"type": "string"
-	      }
-	    ],
+	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  }

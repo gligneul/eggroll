@@ -70,13 +70,7 @@ func init() {
 	      }
 	    ],
 	    "name": "Withdraw",
-	    "outputs": [
-	      {
-		"internalType": "uint256",
-		"name": "Value",
-		"type": "uint256"
-	      }
-	    ],
+	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  },
@@ -89,13 +83,7 @@ func init() {
 	      }
 	    ],
 	    "name": "Honeypot",
-	    "outputs": [
-	      {
-		"internalType": "uint256",
-		"name": "Balance",
-		"type": "uint256"
-	      }
-	    ],
+	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  }

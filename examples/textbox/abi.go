@@ -61,13 +61,7 @@ func init() {
 	      }
 	    ],
 	    "name": "Append",
-	    "outputs": [
-	      {
-		"internalType": "string",
-		"name": "Value",
-		"type": "string"
-	      }
-	    ],
+	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  },
@@ -87,13 +81,7 @@ func init() {
 	      }
 	    ],
 	    "name": "TextBox",
-	    "outputs": [
-	      {
-		"internalType": "string",
-		"name": "Value",
-		"type": "string"
-	      }
-	    ],
+	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  }
