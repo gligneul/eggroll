@@ -6,16 +6,18 @@ package eggwallets
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/holiman/uint256"
 )
 
 // Max value for uint256.
-var IntMax *uint256.Int
+var MaxUint256 *big.Int
 
 func init() {
-	IntMax = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	one := big.NewInt(1)
+	// Left shift by 256 bits and then subtract 1 to get the max value of uint256.
+	MaxUint256 = new(big.Int).Sub(new(big.Int).Lsh(one, 256), one)
 }
 
 // Asset deposit to a portal.

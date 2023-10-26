@@ -6,13 +6,13 @@ package eggroll
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/gligneul/eggroll/pkg/eggeth"
 	"github.com/gligneul/eggroll/pkg/eggwallets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/internal/rollups"
-	"github.com/holiman/uint256"
 )
 
 // Read from the rollups environment.
@@ -49,7 +49,7 @@ type EnvReader interface {
 	EtherAddresses() []common.Address
 
 	// Return the balance of the given address.
-	EtherBalanceOf(address common.Address) uint256.Int
+	EtherBalanceOf(address common.Address) *big.Int
 }
 
 // Read and write the rollups environment.
@@ -69,12 +69,12 @@ type Env interface {
 
 	// Transfer the given amount of funds from source to destination.
 	// Return error if the source doesn't have enough funds.
-	EtherTransfer(src common.Address, dst common.Address, value *uint256.Int) error
+	EtherTransfer(src common.Address, dst common.Address, value *big.Int) error
 
 	// Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
 	// Return the voucher index.
 	// Return error if the address doesn't have enough assets.
-	EtherWithdraw(address common.Address, value *uint256.Int) (int, error)
+	EtherWithdraw(address common.Address, value *big.Int) (int, error)
 
 	// Send a voucher. Return the voucher's index.
 	Voucher(destination common.Address, payload []byte) int

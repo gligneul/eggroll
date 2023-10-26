@@ -6,17 +6,25 @@ package eggwallets
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/holiman/uint256"
 )
+
+// Generate a string converting Wei to Ether.
+func EtherString(wei *big.Int) string {
+	weiFloat := new(big.Float).SetInt(wei)
+	tenToEighteen := new(big.Float).SetFloat64(1e18)
+	etherFloat := new(big.Float).Quo(weiFloat, tenToEighteen)
+	return etherFloat.Text('f', 18)
+}
 
 // An Ether deposit that arrived in the wallet.
 type EtherDeposit struct {
 	Sender common.Address
-	Value  uint256.Int
+	Value  *big.Int
 }
 
 func (e *EtherDeposit) GetSender() common.Address {
@@ -25,19 +33,19 @@ func (e *EtherDeposit) GetSender() common.Address {
 
 func (e *EtherDeposit) String() string {
 	sender := strings.ToLower(e.Sender.String())
-	value := e.Value.ToBig().String()
-	return fmt.Sprintf("%v deposited %v wei", sender, value)
+	value := EtherString(e.Value)
+	return fmt.Sprintf("%v deposited %v Ether", sender, value)
 }
 
 // Wallet that manages Ether.
 type EtherWallet struct {
-	balance map[common.Address]uint256.Int
+	balance map[common.Address]big.Int
 }
 
 // Create new Ether Wallet.
 func NewEtherWallet() *EtherWallet {
 	return &EtherWallet{
-		balance: make(map[common.Address]uint256.Int),
+		balance: make(map[common.Address]big.Int),
 	}
 }
 
@@ -50,8 +58,8 @@ func (w *EtherWallet) Addresses() []common.Address {
 	return addresses
 }
 
-func (w *EtherWallet) setBalance(address common.Address, value *uint256.Int) {
-	if value.IsZero() {
+func (w *EtherWallet) setBalance(address common.Address, value *big.Int) {
+	if value.Sign() == 0 {
 		delete(w.balance, address)
 	} else {
 		w.balance[address] = *value
@@ -59,26 +67,25 @@ func (w *EtherWallet) setBalance(address common.Address, value *uint256.Int) {
 }
 
 // Return the balance of the given address.
-func (w *EtherWallet) BalanceOf(address common.Address) uint256.Int {
-	return w.balance[address]
+func (w *EtherWallet) BalanceOf(address common.Address) *big.Int {
+	balance := w.balance[address]
+	return &balance
 }
 
 // Transfer the given amount of funds from source to destination.
 // Return error if the source doesn't have enough funds.
-func (w *EtherWallet) Transfer(src common.Address, dst common.Address, value *uint256.Int) error {
+func (w *EtherWallet) Transfer(src common.Address, dst common.Address, value *big.Int) error {
 	if src == dst {
 		return fmt.Errorf("can't transfer to self")
 	}
 
-	srcBalance := w.balance[src]
-	newSrcBalance, underflow := new(uint256.Int).SubOverflow(&srcBalance, value)
-	if underflow {
+	newSrcBalance := new(big.Int).Sub(w.BalanceOf(src), value)
+	if newSrcBalance.Sign() < 0 {
 		return fmt.Errorf("insuficient funds")
 	}
 
-	dstBalance := w.balance[dst]
-	newDstBalance, overflow := new(uint256.Int).AddOverflow(&dstBalance, value)
-	if overflow {
+	newDstBalance := new(big.Int).Add(w.BalanceOf(dst), value)
+	if newDstBalance.Cmp(MaxUint256) > 0 {
 		return fmt.Errorf("balance overflow")
 	}
 
@@ -89,7 +96,7 @@ func (w *EtherWallet) Transfer(src common.Address, dst common.Address, value *ui
 }
 
 // Encode the withdraw request to the portal.
-func EncodeEtherWithdraw(address common.Address, value *uint256.Int) []byte {
+func EncodeEtherWithdraw(address common.Address, value *big.Int) []byte {
 	abiJson := `[{
 		"type": "function",
 		"name": "withdrawEther",
@@ -102,7 +109,7 @@ func EncodeEtherWithdraw(address common.Address, value *uint256.Int) []byte {
 	if err != nil {
 		log.Panicf("failed to decode ABI: %v", err)
 	}
-	voucher, err := abiInterface.Pack("withdrawEther", address, value.ToBig())
+	voucher, err := abiInterface.Pack("withdrawEther", address, value)
 	if err != nil {
 		log.Panicf("failed to pack: %v", err)
 	}
@@ -111,10 +118,9 @@ func EncodeEtherWithdraw(address common.Address, value *uint256.Int) []byte {
 
 // Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
 // Return error if the address doesn't have enough assets.
-func (w *EtherWallet) Withdraw(address common.Address, value *uint256.Int) ([]byte, error) {
-	balance := w.balance[address]
-	newBalance, underflow := new(uint256.Int).SubOverflow(&balance, value)
-	if underflow {
+func (w *EtherWallet) Withdraw(address common.Address, value *big.Int) ([]byte, error) {
+	newBalance := new(big.Int).Sub(w.BalanceOf(address), value)
+	if newBalance.Sign() < 0 {
 		return nil, fmt.Errorf("insuficient funds")
 	}
 	w.setBalance(address, newBalance)
@@ -127,18 +133,19 @@ func (w *EtherWallet) Deposit(payload []byte) (Deposit, []byte, error) {
 		return nil, nil, fmt.Errorf("invalid eth deposit size; got %v", len(payload))
 	}
 
-	deposit := &EtherDeposit{
-		Sender: common.BytesToAddress(payload[0:20]),
-		Value:  *new(uint256.Int).SetBytes(payload[20 : 20+32]),
-	}
-	input := payload[20+32:]
+	sender := common.BytesToAddress(payload[:20])
+	payload = payload[20:]
 
-	oldBalance := w.balance[deposit.Sender]
-	newBalance, overflow := new(uint256.Int).AddOverflow(&oldBalance, &deposit.Value)
-	if overflow {
-		newBalance = IntMax
-	}
-	w.setBalance(deposit.Sender, newBalance)
+	value := new(big.Int).SetBytes(payload[:32])
+	payload = payload[32:]
 
-	return deposit, input, nil
+	newBalance := new(big.Int).Add(w.BalanceOf(sender), value)
+	if newBalance.Cmp(MaxUint256) > 0 {
+		// This should not be possible in real world, but we handle it anyway.
+		newBalance = MaxUint256
+	}
+	w.setBalance(sender, newBalance)
+
+	deposit := &EtherDeposit{sender, value}
+	return deposit, payload, nil
 }

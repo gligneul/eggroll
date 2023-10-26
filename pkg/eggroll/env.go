@@ -6,6 +6,7 @@ package eggroll
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 
 	"github.com/gligneul/eggroll/pkg/eggtypes"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gligneul/eggroll/internal/rollups"
-	"github.com/holiman/uint256"
 )
 
 // Implementation of the Env and EnvReader interfaces.
@@ -96,7 +96,7 @@ func (e *env) EtherAddresses() []common.Address {
 	return e.etherWallet.Addresses()
 }
 
-func (e *env) EtherBalanceOf(address common.Address) uint256.Int {
+func (e *env) EtherBalanceOf(address common.Address) *big.Int {
 	return e.etherWallet.BalanceOf(address)
 }
 
@@ -119,11 +119,11 @@ func (e *env) Sender() common.Address {
 	return e.metadata.Sender
 }
 
-func (e *env) EtherTransfer(src common.Address, dst common.Address, value *uint256.Int) error {
+func (e *env) EtherTransfer(src common.Address, dst common.Address, value *big.Int) error {
 	return e.etherWallet.Transfer(src, dst, value)
 }
 
-func (e *env) EtherWithdraw(address common.Address, value *uint256.Int) (int, error) {
+func (e *env) EtherWithdraw(address common.Address, value *big.Int) (int, error) {
 	if e.dappAddress == nil {
 		return 0, fmt.Errorf("need dapp address to withdraw")
 	}

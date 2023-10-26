@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/Khan/genqlient v0.6.0
 	github.com/ethereum/go-ethereum v1.13.2
-	github.com/holiman/uint256 v1.2.3
 	github.com/tyler-smith/go-bip32 v1.0.0
 	github.com/tyler-smith/go-bip39 v1.1.0
 )
@@ -28,6 +27,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/supranational/blst v0.3.11 // indirect

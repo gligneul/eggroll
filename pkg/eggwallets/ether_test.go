@@ -4,18 +4,18 @@
 package eggwallets
 
 import (
-	"reflect"
+	"bytes"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/holiman/uint256"
 )
 
 func TestEtherDepositString(t *testing.T) {
 	sender := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
-	value := uint256.NewInt(100)
-	deposit := &EtherDeposit{sender, *value}
-	expectedString := "0xfafafafafafafafafafafafafafafafafafafafa deposited 100 wei"
+	value := big.NewInt(123000000000000000)
+	deposit := &EtherDeposit{sender, value}
+	expectedString := "0xfafafafafafafafafafafafafafafafafafafafa deposited 0.123000000000000000 Ether"
 	if deposit.String() != expectedString {
 		t.Fatalf("wrong deposit string")
 	}
@@ -28,7 +28,7 @@ func TestEtherAddresses(t *testing.T) {
 		t.Fatalf("expected 0 addresses; got %v", len(addresses))
 	}
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
-	wallet.setBalance(address, uint256.NewInt(1))
+	wallet.setBalance(address, big.NewInt(1))
 	addresses = wallet.Addresses()
 	if len(addresses) != 1 {
 		t.Fatalf("expected 1 addresses; got %v", len(addresses))
@@ -39,12 +39,12 @@ func TestEtherBalanceOf(t *testing.T) {
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	wallet := NewEtherWallet()
 	balance := wallet.BalanceOf(address)
-	if !balance.IsZero() {
+	if balance.Sign() != 0 {
 		t.Fatalf("expected 0 balance")
 	}
-	wallet.setBalance(address, uint256.NewInt(50))
+	wallet.setBalance(address, big.NewInt(50))
 	balance = wallet.BalanceOf(address)
-	if !balance.Eq(uint256.NewInt(50)) {
+	if balance.Cmp(big.NewInt(50)) != 0 {
 		t.Fatalf("expected 50 balance")
 	}
 }
@@ -53,18 +53,18 @@ func TestValidEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	dst := common.HexToAddress("0xfefefefefefefefefefefefefefefefefefefefe")
 	wallet := NewEtherWallet()
-	wallet.setBalance(src, uint256.NewInt(50))
-	wallet.setBalance(dst, uint256.NewInt(50))
-	err := wallet.Transfer(src, dst, uint256.NewInt(50))
+	wallet.setBalance(src, big.NewInt(50))
+	wallet.setBalance(dst, big.NewInt(50))
+	err := wallet.Transfer(src, dst, big.NewInt(50))
 	if err != nil {
 		t.Fatalf("expected nil err; got %v", err)
 	}
 	srcBalance := wallet.BalanceOf(src)
-	if !srcBalance.IsZero() {
+	if srcBalance.Sign() != 0 {
 		t.Fatalf("expected 0 balance in src")
 	}
 	dstBalance := wallet.BalanceOf(dst)
-	if !dstBalance.Eq(uint256.NewInt(100)) {
+	if dstBalance.Cmp(big.NewInt(100)) != 0 {
 		t.Fatalf("expected 100 balance in dst")
 	}
 }
@@ -73,16 +73,16 @@ func TestZeroEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	dst := common.HexToAddress("0xfefefefefefefefefefefefefefefefefefefefe")
 	wallet := NewEtherWallet()
-	err := wallet.Transfer(src, dst, uint256.NewInt(0))
+	err := wallet.Transfer(src, dst, big.NewInt(0))
 	if err != nil {
 		t.Fatalf("expected nil err; got %v", err)
 	}
 	srcBalance := wallet.BalanceOf(src)
-	if !srcBalance.IsZero() {
+	if srcBalance.Sign() != 0 {
 		t.Fatalf("expected 0 balance in src")
 	}
 	dstBalance := wallet.BalanceOf(dst)
-	if !dstBalance.IsZero() {
+	if dstBalance.Sign() != 0 {
 		t.Fatalf("expected 0 balance in dst")
 	}
 }
@@ -90,8 +90,8 @@ func TestZeroEtherTransfer(t *testing.T) {
 func TestSelfEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	wallet := NewEtherWallet()
-	wallet.setBalance(src, uint256.NewInt(50))
-	err := wallet.Transfer(src, src, uint256.NewInt(50))
+	wallet.setBalance(src, big.NewInt(50))
+	err := wallet.Transfer(src, src, big.NewInt(50))
 	if err == nil {
 		t.Fatalf("expected error; got nil")
 	}
@@ -104,8 +104,8 @@ func TestInsuficientFundsEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	dst := common.HexToAddress("0xfefefefefefefefefefefefefefefefefefefefe")
 	wallet := NewEtherWallet()
-	wallet.setBalance(src, uint256.NewInt(50))
-	err := wallet.Transfer(src, dst, uint256.NewInt(100))
+	wallet.setBalance(src, big.NewInt(50))
+	err := wallet.Transfer(src, dst, big.NewInt(100))
 	if err == nil {
 		t.Fatalf("expected error; got nil")
 	}
@@ -118,9 +118,9 @@ func TestBalanceOverflowEtherTransfer(t *testing.T) {
 	src := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	dst := common.HexToAddress("0xfefefefefefefefefefefefefefefefefefefefe")
 	wallet := NewEtherWallet()
-	wallet.setBalance(src, uint256.NewInt(50))
-	wallet.setBalance(dst, IntMax)
-	err := wallet.Transfer(src, dst, uint256.NewInt(50))
+	wallet.setBalance(src, big.NewInt(50))
+	wallet.setBalance(dst, MaxUint256)
+	err := wallet.Transfer(src, dst, big.NewInt(50))
 	if err == nil {
 		t.Fatalf("expected error; got nil")
 	}
@@ -131,10 +131,10 @@ func TestBalanceOverflowEtherTransfer(t *testing.T) {
 
 func TestEtherWithdrawEncode(t *testing.T) {
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
-	value := uint256.NewInt(100)
+	value := big.NewInt(100)
 	voucher := EncodeEtherWithdraw(address, value)
 	expectedVoucher := common.Hex2Bytes("522f6815000000000000000000000000fafafafafafafafafafafafafafafafafafafafa0000000000000000000000000000000000000000000000000000000000000064")
-	if !reflect.DeepEqual(voucher, expectedVoucher) {
+	if !bytes.Equal(voucher, expectedVoucher) {
 		t.Fatalf("got wrong voucher")
 	}
 }
@@ -142,8 +142,8 @@ func TestEtherWithdrawEncode(t *testing.T) {
 func TestInsuficientFundsEtherWithdraw(t *testing.T) {
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	wallet := NewEtherWallet()
-	wallet.setBalance(address, uint256.NewInt(50))
-	voucher, err := wallet.Withdraw(address, uint256.NewInt(100))
+	wallet.setBalance(address, big.NewInt(50))
+	voucher, err := wallet.Withdraw(address, big.NewInt(100))
 	if voucher != nil || err == nil {
 		t.Fatalf("expected nil, err; got %v, %v", voucher, err)
 	}
@@ -151,7 +151,7 @@ func TestInsuficientFundsEtherWithdraw(t *testing.T) {
 		t.Fatalf("wrong error message")
 	}
 	balance := wallet.BalanceOf(address)
-	if !balance.Eq(uint256.NewInt(50)) {
+	if balance.Cmp(big.NewInt(50)) != 0 {
 		t.Fatalf("wrong balance; expected 50")
 	}
 }
@@ -159,13 +159,13 @@ func TestInsuficientFundsEtherWithdraw(t *testing.T) {
 func TestValidWithdraw(t *testing.T) {
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	wallet := NewEtherWallet()
-	wallet.setBalance(address, uint256.NewInt(100))
-	voucher, err := wallet.Withdraw(address, uint256.NewInt(100))
+	wallet.setBalance(address, big.NewInt(100))
+	voucher, err := wallet.Withdraw(address, big.NewInt(100))
 	if voucher == nil || err != nil {
 		t.Fatalf("expected voucher, nil; got %v, %v", voucher, err)
 	}
 	balance := wallet.BalanceOf(address)
-	if !balance.IsZero() {
+	if balance.Sign() != 0 {
 		t.Fatalf("wrong balance; expected 0")
 	}
 }
@@ -187,7 +187,7 @@ func TestValidEtherDeposit(t *testing.T) {
 	if etherDeposit.Sender != expectedAddress {
 		t.Fatal("wrong deposit address")
 	}
-	if !etherDeposit.Value.Eq(uint256.NewInt(100)) {
+	if etherDeposit.Value.Cmp(big.NewInt(100)) != 0 {
 		t.Fatal("wrong deposit value; expected 100")
 	}
 
@@ -199,7 +199,7 @@ func TestValidEtherDeposit(t *testing.T) {
 	}
 
 	balance := wallet.BalanceOf(expectedAddress)
-	if !balance.Eq(uint256.NewInt(100)) {
+	if balance.Cmp(big.NewInt(100)) != 0 {
 		t.Fatal("wrong balance; expected 100")
 	}
 }
@@ -240,7 +240,7 @@ func TestOverflowDeposit(t *testing.T) {
 	// check balance
 	address := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	balance := wallet.BalanceOf(address)
-	if !balance.Eq(IntMax) {
+	if balance.Cmp(MaxUint256) != 0 {
 		t.Fatal("wrong balance; expected int max")
 	}
 }

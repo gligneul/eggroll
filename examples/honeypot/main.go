@@ -9,7 +9,6 @@ import (
 	"github.com/gligneul/eggroll/pkg/eggroll"
 	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"github.com/gligneul/eggroll/pkg/eggwallets"
-	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -32,16 +31,16 @@ func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 	case Deposit:
 		switch deposit := env.Deposit().(type) {
 		case *eggwallets.EtherDeposit:
-			env.Logf("received deposit: %v\n", deposit)
+			env.Log(deposit)
 			if env.Sender() != Owner {
 				// Transfer Ether deposits to Owner
-				env.EtherTransfer(env.Sender(), Owner, &deposit.Value)
+				env.EtherTransfer(env.Sender(), Owner, deposit.Value)
 			}
-			sendBalance(env)
+			reportHoneypot(env)
 			return nil
 
 		default:
-			return fmt.Errorf("unsupported deposit: %v", deposit)
+			return fmt.Errorf("unsupported deposit: %T", deposit)
 		}
 
 	case Withdraw:
@@ -49,15 +48,12 @@ func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 			// Ignore inputs that are not from Owner
 			return fmt.Errorf("ignoring input from %v", env.Sender())
 		}
-		// TODO remove uint256
-		v := new(uint256.Int)
-		v.SetFromBig(input.Value)
-		_, err := env.EtherWithdraw(Owner, v)
+		_, err := env.EtherWithdraw(Owner, input.Value)
 		if err != nil {
 			return err
 		}
 		env.Logf("withdraw %v\n", input.Value)
-		sendBalance(env)
+		reportHoneypot(env)
 		return nil
 
 	default:
@@ -66,14 +62,13 @@ func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 }
 
 func (c *Contract) Inspect(env eggroll.EnvReader, input []byte) error {
-	sendBalance(env)
+	reportHoneypot(env)
 	return nil
 }
 
-func sendBalance(env eggroll.EnvReader) {
-	ownerBalance := env.EtherBalanceOf(Owner)
+func reportHoneypot(env eggroll.EnvReader) {
 	honeypot := Honeypot{
-		Balance: ownerBalance.ToBig(),
+		Balance: env.EtherBalanceOf(Owner),
 	}
 	env.Report(honeypot.Pack())
 }
