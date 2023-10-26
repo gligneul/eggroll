@@ -50,6 +50,15 @@ type EnvReader interface {
 
 	// Return the balance of the given address.
 	EtherBalanceOf(address common.Address) *big.Int
+
+	// Return the list of tokens with assets.
+	ERC20Tokens() []common.Address
+
+	// Return the list of addresses that have assets for the given token.
+	ERC20Addresses(token common.Address) []common.Address
+
+	// Return the balance of the given address for the given token.
+	ERC20BalanceOf(token common.Address, address common.Address) *big.Int
 }
 
 // Read and write the rollups environment.
@@ -67,6 +76,12 @@ type Env interface {
 	// If the input sender was a portal, this function returns the address that called the portal.
 	Sender() common.Address
 
+	// Send a voucher. Return the voucher's index.
+	Voucher(destination common.Address, payload []byte) int
+
+	// Send a notice. Return the notice's index.
+	Notice(payload []byte) int
+
 	// Transfer the given amount of funds from source to destination.
 	// Return error if the source doesn't have enough funds.
 	EtherTransfer(src common.Address, dst common.Address, value *big.Int) error
@@ -76,11 +91,13 @@ type Env interface {
 	// Return error if the address doesn't have enough assets.
 	EtherWithdraw(address common.Address, value *big.Int) (int, error)
 
-	// Send a voucher. Return the voucher's index.
-	Voucher(destination common.Address, payload []byte) int
+	// Transfer the given amount of tokens from source to destination.
+	// Return error if the source doesn't have enough funds.
+	ERC20Transfer(token common.Address, src common.Address, dst common.Address, value *big.Int) error
 
-	// Send a notice. Return the notice's index.
-	Notice(payload []byte) int
+	// Withdraw the asset from the wallet and generate the voucher to withdraw from the portal.
+	// Return error if the address doesn't have enough assets.
+	ERC20Withdraw(token common.Address, address common.Address, value *big.Int) (int, error)
 }
 
 // The Contract is the on-chain part of a rollups DApp.
@@ -110,12 +127,7 @@ func (_ DefaultContract) Inspect(env EnvReader, input []byte) error {
 func Roll(contract Contract) {
 	rollupsAPI := rollups.NewRollupsHTTP()
 	env := newEnv(rollupsAPI)
-	walletMap := map[common.Address]eggwallets.Wallet{
-		eggeth.AddressEtherPortal: env.etherWallet,
-	}
-
 	status := rollups.FinishStatusAccept
-
 	for {
 		input, err := rollupsAPI.Finish(status)
 		if err != nil {
@@ -124,7 +136,7 @@ func Roll(contract Contract) {
 
 		switch input := input.(type) {
 		case *rollups.AdvanceInput:
-			err = handleAdvance(env, contract, walletMap, input)
+			err = handleAdvance(env, contract, input)
 		case *rollups.InspectInput:
 			err = handleInspect(env, contract, input)
 		default:
@@ -145,7 +157,6 @@ func Roll(contract Contract) {
 func handleAdvance(
 	env *env,
 	contract Contract,
-	walletMap map[common.Address]eggwallets.Wallet,
 	input *rollups.AdvanceInput,
 ) error {
 	var deposit eggwallets.Deposit
@@ -155,7 +166,7 @@ func handleAdvance(
 		return handleDAppAddressRelay(env, input.Payload)
 	}
 
-	wallet, ok := walletMap[input.Metadata.Sender]
+	wallet, ok := env.walletMap[input.Metadata.Sender]
 	if ok {
 		var err error
 		deposit, rawInput, err = wallet.Deposit(input.Payload)

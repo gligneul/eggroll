@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/gligneul/eggroll/pkg/eggeth"
 	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"github.com/gligneul/eggroll/pkg/eggwallets"
 
@@ -21,7 +22,9 @@ type env struct {
 	logger      *log.Logger
 	rollups     *rollups.RollupsHTTP
 	etherWallet *eggwallets.EtherWallet
+	erc20Wallet *eggwallets.ERC20Wallet
 	dappAddress *common.Address
+	walletMap   map[common.Address]eggwallets.Wallet
 
 	// The fields below should be set for each input.
 	metadata *rollups.Metadata
@@ -33,10 +36,18 @@ type env struct {
 //
 
 func newEnv(rollups *rollups.RollupsHTTP) *env {
+	etherWallet := eggwallets.NewEtherWallet()
+	erc20Wallet := eggwallets.NewERC20Wallet()
+	walletMap := map[common.Address]eggwallets.Wallet{
+		eggeth.AddressEtherPortal: etherWallet,
+		eggeth.AddressERC20Portal: erc20Wallet,
+	}
 	return &env{
 		logger:      log.New(os.Stdout, "", 0),
 		rollups:     rollups,
-		etherWallet: eggwallets.NewEtherWallet(),
+		etherWallet: etherWallet,
+		erc20Wallet: erc20Wallet,
+		walletMap:   walletMap,
 	}
 }
 
@@ -100,6 +111,18 @@ func (e *env) EtherBalanceOf(address common.Address) *big.Int {
 	return e.etherWallet.BalanceOf(address)
 }
 
+func (e *env) ERC20Tokens() []common.Address {
+	return e.erc20Wallet.Tokens()
+}
+
+func (e *env) ERC20Addresses(token common.Address) []common.Address {
+	return e.erc20Wallet.Addresses(token)
+}
+
+func (e *env) ERC20BalanceOf(token common.Address, address common.Address) *big.Int {
+	return e.erc20Wallet.BalanceOf(token, address)
+}
+
 //
 // Implementation of Env
 //
@@ -119,6 +142,22 @@ func (e *env) Sender() common.Address {
 	return e.metadata.Sender
 }
 
+func (e *env) Voucher(destination common.Address, payload []byte) int {
+	index, err := e.rollups.SendVoucher(destination, payload)
+	if err != nil {
+		e.Fatalf("failed to send voucher: %v", err)
+	}
+	return index
+}
+
+func (e *env) Notice(payload []byte) int {
+	index, err := e.rollups.SendNotice(payload)
+	if err != nil {
+		e.Fatalf("failed to send notice: %v", err)
+	}
+	return index
+}
+
 func (e *env) EtherTransfer(src common.Address, dst common.Address, value *big.Int) error {
 	return e.etherWallet.Transfer(src, dst, value)
 }
@@ -134,18 +173,14 @@ func (e *env) EtherWithdraw(address common.Address, value *big.Int) (int, error)
 	return e.Voucher(*e.dappAddress, voucher), nil
 }
 
-func (e *env) Voucher(destination common.Address, payload []byte) int {
-	index, err := e.rollups.SendVoucher(destination, payload)
-	if err != nil {
-		e.Fatalf("failed to send voucher: %v", err)
-	}
-	return index
+func (e *env) ERC20Transfer(token common.Address, src common.Address, dst common.Address, value *big.Int) error {
+	return e.erc20Wallet.Transfer(token, src, dst, value)
 }
 
-func (e *env) Notice(payload []byte) int {
-	index, err := e.rollups.SendNotice(payload)
+func (e *env) ERC20Withdraw(token common.Address, address common.Address, value *big.Int) (int, error) {
+	voucher, err := e.erc20Wallet.Withdraw(token, address, value)
 	if err != nil {
-		e.Fatalf("failed to send notice: %v", err)
+		return 0, err
 	}
-	return index
+	return e.Voucher(eggeth.AddressERC20Portal, voucher), nil
 }
