@@ -55,6 +55,7 @@ func (w *EtherWallet) Addresses() []common.Address {
 	for address := range w.balance {
 		addresses = append(addresses, address)
 	}
+	sortAddresses(addresses)
 	return addresses
 }
 
