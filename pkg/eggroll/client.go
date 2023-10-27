@@ -95,7 +95,6 @@ func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth.Signer) (int
 }
 
 // Send Ether to the Ether portal. This function also receives an optional input.
-// If the input has type []byte send it as raw bytes; otherwise, use codecs to encode it.
 // This function waits until the transaction is added to a block and return the input index.
 func (c *Client) SendEther(
 	ctx context.Context, signer eggeth.Signer, txValue *big.Int, payload []byte) (int, error) {
