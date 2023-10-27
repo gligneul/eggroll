@@ -1,0 +1,6 @@
+[submodule "pkg/eggtest/contracts/lib/forge-std"]
+	path = pkg/eggeth/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "pkg/eggtest/contracts/lib/openzeppelin-contracts"]
+	path = pkg/eggeth/contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts

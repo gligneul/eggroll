@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math/big"
 	"testing"
 	"time"
@@ -28,12 +29,19 @@ func TestClient(t *testing.T) {
 			t.Fatalf("failed to terminate anvil container: %v", err)
 		}
 	}()
-
-	// Set up ETHClient
 	endpoint, err := anvilContainer.Endpoint(ctx, "ws")
 	if err != nil {
 		t.Fatalf("failed to get anvil endpoint: %v", err)
 	}
+
+	// Deploy test contracts
+	erc20Token, err := DeployTestERC20(ctx, endpoint)
+	if err != nil {
+		t.Fatalf("failed to deploy test erc20: %v", err)
+	}
+	t.Logf("ERC20 token: %v", erc20Token)
+
+	// Set up ETHClient
 	dappAddress := common.HexToAddress("0xfafafafafafafafafafafafafafafafafafafafa")
 	client, err := NewETHClient(endpoint, dappAddress)
 
@@ -47,8 +55,7 @@ func TestClient(t *testing.T) {
 	}
 
 	// Set up signer
-	mnemonic := "test test test test test test test test test test test junk"
-	signer, err := NewMnemonicSigner(mnemonic, 0, chainID)
+	signer, err := NewMnemonicSigner(FoundryMnemonic, 0, chainID)
 	if err != nil {
 		t.Fatalf("failed to create signer: %v", err)
 	}
@@ -79,45 +86,45 @@ func TestClient(t *testing.T) {
 		{
 			name: "SendEther",
 			do: func(ctx context.Context, c *ETHClient, s Signer) (int, error) {
-				return c.SendEther(ctx, s, big.NewInt(0xfafa), common.Hex2Bytes("deadbeef"))
+				return c.SendEther(ctx, s, big.NewInt(65535), common.Hex2Bytes("deadbeef"))
 			},
 			sender: AddressEtherPortal,
 			input: common.Hex2Bytes("" +
 				// sender address
 				"f39fd6e51aad88f6f4ce6ab8827279cfffb92266" +
 				// value
-				"000000000000000000000000000000000000000000000000000000000000fafa" +
+				"000000000000000000000000000000000000000000000000000000000000ffff" +
 				// payload
 				"deadbeef",
 			),
 		},
-		// TODO the erc20 test doesn't work because we need to deploy a
-		// erc20 contract first
-		//{
-		//	name: "SendERC20Tokens",
-		//	do: func(ctx context.Context, c *ETHClient, s Signer) (int, error) {
-		//		token := common.HexToAddress("beefbeefbeefbeefbeefbeefbeefbeefbeefbeef")
-		//		amount := big.NewInt(0xfafa)
-		//		input := common.Hex2Bytes("deadbeef")
-		//		return c.SendERC20Tokens(ctx, s, token, amount, input)
-		//	},
-		//	sender: AddressEtherPortal,
-		//	input: common.Hex2Bytes("" +
-		//		// token
-		//		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeef" +
-		//		// sender address
-		//		"f39fd6e51aad88f6f4ce6ab8827279cfffb92266" +
-		//		// amount
-		//		"000000000000000000000000000000000000000000000000000000000000fafa" +
-		//		// payload
-		//		"deadbeef",
-		//	),
-		//},
+		{
+			name: "SendERC20Tokens",
+			do: func(ctx context.Context, c *ETHClient, s Signer) (int, error) {
+				amount := big.NewInt(65535)
+				input := common.Hex2Bytes("deadbeef")
+				return c.SendERC20Tokens(ctx, s, erc20Token, amount, input)
+			},
+			sender: AddressERC20Portal,
+			input: common.Hex2Bytes("" +
+				// success
+				"01" +
+				// token
+				erc20Token.Hex()[2:] +
+				// sender address
+				"f39fd6e51aad88f6f4ce6ab8827279cfffb92266" +
+				// amount
+				"000000000000000000000000000000000000000000000000000000000000ffff" +
+				// payload
+				"deadbeef",
+			),
+		},
 	}
 	for i, testCase := range testCases {
 		t.Logf("testing client.%v", testCase.name)
 		inputIndex, err := testCase.do(ctx, client, signer)
 		if err != nil {
+			logContainerOutput(t, ctx, anvilContainer)
 			t.Fatalf("failed to send: %v", err)
 		}
 		if inputIndex != i {
@@ -180,4 +187,16 @@ func getInput(
 		return common.Address{}, nil, fmt.Errorf("event not found")
 	}
 	return it.Event.Sender, it.Event.Input, nil
+}
+
+func logContainerOutput(t *testing.T, ctx context.Context, container testcontainers.Container) {
+	reader, err := container.Logs(ctx)
+	if err != nil {
+		t.Fatalf("failed to get reader: %v", err)
+	}
+	bytes, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("failed to read logs: %v", err)
+	}
+	t.Log(string(bytes))
 }

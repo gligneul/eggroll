@@ -70,8 +70,7 @@ func NewDevClient(ctx context.Context) (*Client, eggeth.Signer, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get chain id: %v", err)
 	}
-	signer, err := eggeth.NewMnemonicSigner(
-		"test test test test test test test test test test test junk", 0, chainId)
+	signer, err := eggeth.NewMnemonicSigner(eggeth.FoundryMnemonic, 0, chainId)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create signer: %v", err)
 	}

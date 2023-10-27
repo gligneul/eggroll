@@ -14,22 +14,14 @@ package eggeth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
-
-// Interface to create a signer for blockchain transactions.
-type Signer interface {
-	MakeTransactor() (*bind.TransactOpts, error)
-	Account() common.Address
-}
 
 // Implements blockchain client for Ethereum using go-ethereum.
 // This struct provides methods that are specific for the Cartesi Rollups.
@@ -84,7 +76,7 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}
 	ethClient := &ETHClient{
-		GasLimit:            30_000_000, // max gas
+		GasLimit:            DefaultGasLimit,
 		client:              client,
 		dappAddress:         dappAddress,
 		dappAddressRelay:    dappAddressRelay,
@@ -228,7 +220,7 @@ func (c *ETHClient) doSend(
 	sender func(txOpts *bind.TransactOpts) (*types.Transaction, error)) (
 	int, error) {
 
-	txOpts, err := c.prepareTransaction(ctx, signer, txValue)
+	txOpts, err := prepareTransaction(ctx, c.client, signer, txValue, c.GasLimit)
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare transaction: %v", err)
 	}
@@ -236,54 +228,11 @@ func (c *ETHClient) doSend(
 	if err != nil {
 		return 0, fmt.Errorf("failed to send dapp address: %v", err)
 	}
-	err = c.waitForTransaction(ctx, tx)
+	err = waitForTransaction(ctx, c.client, tx)
 	if err != nil {
 		return 0, err
 	}
 	return c.getInputIndex(ctx, tx)
-}
-
-// Prepare the blockchain transaction.
-func (c *ETHClient) prepareTransaction(ctx context.Context, signer Signer, txValue *big.Int) (
-	*bind.TransactOpts, error) {
-
-	nonce, err := c.client.PendingNonceAt(ctx, signer.Account())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %v", err)
-	}
-	gasPrice, err := c.client.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %v", err)
-	}
-	tx, err := signer.MakeTransactor()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transactor: %v", err)
-	}
-	tx.Nonce = big.NewInt(int64(nonce))
-	tx.Value = txValue
-	tx.GasLimit = c.GasLimit
-	tx.GasPrice = gasPrice
-	return tx, nil
-}
-
-// Wait for transaction to be included in a block.
-func (c *ETHClient) waitForTransaction(ctx context.Context, tx *types.Transaction) error {
-	for {
-		_, isPending, err := c.client.TransactionByHash(ctx, tx.Hash())
-		if err != nil {
-			return fmt.Errorf("fail to recover transaction: %v", err)
-		}
-		if !isPending {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(100 * time.Millisecond):
-			continue
-		}
-	}
-	return nil
 }
 
 // Get input index in the transaction by looking at the event logs.
@@ -293,7 +242,7 @@ func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (i
 		return 0, fmt.Errorf("failed to get receipt: %v", err)
 	}
 	if receipt.Status == 0 {
-		reason, err := c.traceTransaction(ctx, tx.Hash())
+		reason, err := traceTransaction(ctx, c.client, tx.Hash())
 		if err != nil {
 			return 0, fmt.Errorf("transaction failed; failed to get reason: %v", err)
 		}
@@ -312,16 +261,4 @@ func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (i
 		return inputIndex, nil
 	}
 	return 0, fmt.Errorf("input index not found")
-}
-
-func (c *ETHClient) traceTransaction(ctx context.Context, hash common.Hash) (string, error) {
-	// We make a call using the rpc client directly because this function
-	// is not present in the ethclient struct. More details in:
-	// https://github.com/ethereum/go-ethereum/issues/17341
-	var result json.RawMessage
-	err := c.client.Client().Call(&result, "debug_traceTransaction", hash)
-	if err != nil {
-		return "", err
-	}
-	return string(result), nil
 }
