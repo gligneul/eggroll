@@ -14,6 +14,7 @@ package eggeth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -292,7 +293,11 @@ func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (i
 		return 0, fmt.Errorf("failed to get receipt: %v", err)
 	}
 	if receipt.Status == 0 {
-		return 0, fmt.Errorf("transaction failed")
+		reason, err := c.traceTransaction(ctx, tx.Hash())
+		if err != nil {
+			return 0, fmt.Errorf("transaction failed; failed to get reason: %v", err)
+		}
+		return 0, fmt.Errorf("transaction failed: %v", reason)
 	}
 	for _, log := range receipt.Logs {
 		if log.Address != AddressInputBox {
@@ -307,4 +312,16 @@ func (c *ETHClient) getInputIndex(ctx context.Context, tx *types.Transaction) (i
 		return inputIndex, nil
 	}
 	return 0, fmt.Errorf("input index not found")
+}
+
+func (c *ETHClient) traceTransaction(ctx context.Context, hash common.Hash) (string, error) {
+	// We make a call using the rpc client directly because this function
+	// is not present in the ethclient struct. More details in:
+	// https://github.com/ethereum/go-ethereum/issues/17341
+	var result json.RawMessage
+	err := c.client.Client().Call(&result, "debug_traceTransaction", hash)
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
 }
