@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gligneul/eggroll/pkg/eggeth/bindings"
 	"github.com/gligneul/eggroll/pkg/eggwallets"
@@ -30,52 +32,29 @@ func DeployTestERC20(ctx context.Context, endpoint string) (common.Address, erro
 		return common.Address{}, fmt.Errorf("failed to create signer: %v", err)
 	}
 
-	// deploy
-	txOpts, err := prepareTransaction(ctx, client, signer, big.NewInt(0), DefaultGasLimit)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to prepare transaction: %v", err)
-	}
-	address, tx, erc20, err := bindings.DeployTestERC20(txOpts, client, signer.Account())
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to deploy: %v", err)
-	}
-	err = waitForTransaction(ctx, client, tx)
+	var address common.Address
+	var erc20 *bindings.TestERC20
+	_, err = sendTransaction(
+		ctx, client, signer, big.NewInt(0), DefaultGasLimit,
+		func(txOpts *bind.TransactOpts) (tx *types.Transaction, err error) {
+			address, tx, erc20, err = bindings.DeployTestERC20(
+				txOpts, client, signer.Account())
+			return tx, err
+		},
+	)
 	if err != nil {
 		return common.Address{}, err
-	}
-	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get receipt: %v", err)
-	}
-	if receipt.Status == 0 {
-		reason, err := traceTransaction(ctx, client, tx.Hash())
-		if err != nil {
-			return common.Address{}, fmt.Errorf("transaction failed; failed to get reason: %v", err)
-		}
-		return common.Address{}, fmt.Errorf("transaction failed: %v", reason)
 	}
 
 	// allowance to portal
-	txOpts, err = prepareTransaction(ctx, client, signer, big.NewInt(0), DefaultGasLimit)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to prepare transaction: %v", err)
-	}
-	// TODO do not use eggwallets
-	tx, err = erc20.Approve(txOpts, AddressERC20Portal, eggwallets.MaxUint256)
-	err = waitForTransaction(ctx, client, tx)
+	_, err = sendTransaction(
+		ctx, client, signer, big.NewInt(0), DefaultGasLimit,
+		func(txOpts *bind.TransactOpts) (tx *types.Transaction, err error) {
+			return erc20.Approve(txOpts, AddressERC20Portal, eggwallets.MaxUint256)
+		},
+	)
 	if err != nil {
 		return common.Address{}, err
-	}
-	receipt, err = client.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get receipt: %v", err)
-	}
-	if receipt.Status == 0 {
-		reason, err := traceTransaction(ctx, client, tx.Hash())
-		if err != nil {
-			return common.Address{}, fmt.Errorf("transaction failed; failed to get reason: %v", err)
-		}
-		return common.Address{}, fmt.Errorf("transaction failed: %v", reason)
 	}
 
 	return address, nil
