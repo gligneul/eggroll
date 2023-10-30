@@ -32,7 +32,7 @@ func TestTemplate(t *testing.T) {
 	}
 
 	// Test advance
-	inputIndex, err := client.SendInput(ctx, signer, []byte("eggroll"))
+	inputIndex, err := client.Eth.SendInput(ctx, signer, []byte("eggroll"))
 	if err != nil {
 		t.Fatalf("failed to send input: %v", err)
 	}

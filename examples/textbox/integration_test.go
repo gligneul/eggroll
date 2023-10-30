@@ -53,7 +53,7 @@ func sendInputsAndVerifyState(
 	var lastInputIndex int
 	for _, input := range inputs {
 		var err error
-		lastInputIndex, err = client.SendInput(ctx, signer, input.Pack())
+		lastInputIndex, err = client.Eth.SendInput(ctx, signer, input.Pack())
 		if err != nil {
 			t.Fatalf("failed to send input: %v", err)
 		}

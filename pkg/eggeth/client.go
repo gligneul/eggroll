@@ -87,7 +87,8 @@ func (c *ETHClient) ChainID(ctx context.Context) (*big.Int, error) {
 	return c.client.ChainID(ctx)
 }
 
-// Send input to the blockchain.
+// Send the input to the DApp contract.
+// This function waits until the transaction is added to a block and return the input index.
 func (c *ETHClient) SendInput(ctx context.Context, signer Signer, input []byte) (int, error) {
 	receipt, err := sendTransaction(
 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
@@ -101,7 +102,8 @@ func (c *ETHClient) SendInput(ctx context.Context, signer Signer, input []byte) 
 	return c.getInputIndex(ctx, receipt)
 }
 
-// Send dapp address with the dapp address relay contract.
+// Send the DApp address to the DApp contract with the DAppAddressRelay contract.
+// This function waits until the transaction is added to a block and return the input index.
 func (c *ETHClient) SendDAppAddress(ctx context.Context, signer Signer) (int, error) {
 	receipt, err := sendTransaction(
 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
@@ -115,7 +117,8 @@ func (c *ETHClient) SendDAppAddress(ctx context.Context, signer Signer) (int, er
 	return c.getInputIndex(ctx, receipt)
 }
 
-// Send assets to the Ether portal.
+// Send Ether to the Ether portal. This function also receives an optional input.
+// This function waits until the transaction is added to a block and return the input index.
 func (c *ETHClient) SendEther(
 	ctx context.Context,
 	signer Signer,
@@ -134,7 +137,8 @@ func (c *ETHClient) SendEther(
 	return c.getInputIndex(ctx, receipt)
 }
 
-// Send assets to the ERC20 portal.
+// Send an ERC20 token to the ERC20 portal. This function also receives an optional input.
+// This function waits until the transaction is added to a block and return the input index.
 func (c *ETHClient) SendERC20Tokens(
 	ctx context.Context,
 	signer Signer,

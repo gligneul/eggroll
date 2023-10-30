@@ -6,7 +6,6 @@ package eggroll
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/gligneul/eggroll/pkg/eggeth"
@@ -30,7 +29,7 @@ type Client struct {
 	ClientConfig
 	reader  *reader.GraphQLReader
 	inspect *reader.InspectClient
-	eth     *eggeth.ETHClient
+	Eth     *eggeth.ETHClient
 }
 
 // Create a new client with the given config.
@@ -43,7 +42,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 		ClientConfig: config,
 		reader:       reader.NewGraphQLReader(config.GraphqlEndpoint),
 		inspect:      reader.NewInspectClient(config.InspectEndpoint),
-		eth:          ethClient,
+		Eth:          ethClient,
 	}
 	return client, nil
 }
@@ -66,7 +65,7 @@ func NewDevClient(ctx context.Context) (*Client, eggeth.Signer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	chainId, err := client.eth.ChainID(ctx)
+	chainId, err := client.Eth.ChainID(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get chain id: %v", err)
 	}
@@ -75,30 +74,6 @@ func NewDevClient(ctx context.Context) (*Client, eggeth.Signer, error) {
 		return nil, nil, fmt.Errorf("failed to create signer: %v", err)
 	}
 	return client, signer, nil
-}
-
-//
-// Send functions
-//
-
-// Send the input to the DApp contract.
-// This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendInput(ctx context.Context, signer eggeth.Signer, payload []byte) (int, error) {
-	return c.eth.SendInput(ctx, signer, payload)
-}
-
-// Send the DApp address to the DApp contract with the DAppAddressRelay contract.
-// This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendDAppAddress(ctx context.Context, signer eggeth.Signer) (int, error) {
-	return c.eth.SendDAppAddress(ctx, signer)
-}
-
-// Send Ether to the Ether portal. This function also receives an optional input.
-// This function waits until the transaction is added to a block and return the input index.
-func (c *Client) SendEther(
-	ctx context.Context, signer eggeth.Signer, txValue *big.Int, payload []byte) (int, error) {
-
-	return c.eth.SendEther(ctx, signer, txValue, payload)
 }
 
 //
