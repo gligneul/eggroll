@@ -3,14 +3,14 @@
 
 package eggeth
 
-//go:generate abigen --abi abi/CartesiDApp.json --pkg eggeth --type CartesiDApp --out cartesidapp.go
-//go:generate abigen --abi abi/DAppAddressRelay.json --pkg eggeth --type DAppAddressRelay --out dappaddressrelay.go
-//go:generate abigen --abi abi/ERC1155BatchPortal.json --pkg eggeth --type ERC1155BatchPortal --out erc1155batchportal.go
-//go:generate abigen --abi abi/ERC1155SinglePortal.json --pkg eggeth --type ERC1155SinglePortal --out erc1155singleportal.go
-//go:generate abigen --abi abi/ERC20Portal.json --pkg eggeth --type ERC20Portal --out erc20portal.go
-//go:generate abigen --abi abi/ERC721Portal.json --pkg eggeth --type ERC721Portal --out erc721portal.go
-//go:generate abigen --abi abi/EtherPortal.json --pkg eggeth --type EtherPortal --out etherportal.go
-//go:generate abigen --abi abi/InputBox.json --pkg eggeth --type InputBox --out inputbox.go
+//go:generate abigen --abi cartesi_abi/CartesiDApp.json --pkg bindings --type CartesiDApp --out bindings/cartesidapp.go
+//go:generate abigen --abi cartesi_abi/DAppAddressRelay.json --pkg bindings --type DAppAddressRelay --out bindings/dappaddressrelay.go
+//go:generate abigen --abi cartesi_abi/ERC1155BatchPortal.json --pkg bindings --type ERC1155BatchPortal --out bindings/erc1155batchportal.go
+//go:generate abigen --abi cartesi_abi/ERC1155SinglePortal.json --pkg bindings --type ERC1155SinglePortal --out bindings/erc1155singleportal.go
+//go:generate abigen --abi cartesi_abi/ERC20Portal.json --pkg bindings --type ERC20Portal --out bindings/erc20portal.go
+//go:generate abigen --abi cartesi_abi/ERC721Portal.json --pkg bindings --type ERC721Portal --out bindings/erc721portal.go
+//go:generate abigen --abi cartesi_abi/EtherPortal.json --pkg bindings --type EtherPortal --out bindings/etherportal.go
+//go:generate abigen --abi cartesi_abi/InputBox.json --pkg bindings --type InputBox --out bindings/inputbox.go
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gligneul/eggroll/pkg/eggeth/bindings"
 )
 
 // Implements blockchain client for Ethereum using go-ethereum.
@@ -32,13 +33,13 @@ type ETHClient struct {
 
 	client              *ethclient.Client
 	dappAddress         common.Address
-	dappAddressRelay    *DAppAddressRelay
-	erc1155BatchPortal  *ERC1155BatchPortal
-	erc1155SinglePortal *ERC1155SinglePortal
-	erc20Portal         *ERC20Portal
-	erc721Portal        *ERC721Portal
-	etherPortal         *EtherPortal
-	inputBox            *InputBox
+	dappAddressRelay    *bindings.DAppAddressRelay
+	erc1155BatchPortal  *bindings.ERC1155BatchPortal
+	erc1155SinglePortal *bindings.ERC1155SinglePortal
+	erc20Portal         *bindings.ERC20Portal
+	erc721Portal        *bindings.ERC721Portal
+	etherPortal         *bindings.EtherPortal
+	inputBox            *bindings.InputBox
 }
 
 // Create new ETH client.
@@ -47,31 +48,31 @@ func NewETHClient(endpoint string, dappAddress common.Address) (*ETHClient, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum: %v", err)
 	}
-	dappAddressRelay, err := NewDAppAddressRelay(AddressDAppAddressRelay, client)
+	dappAddressRelay, err := bindings.NewDAppAddressRelay(AddressDAppAddressRelay, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to DAppAddressRelaya contract: %v", err)
 	}
-	erc1155BatchPortal, err := NewERC1155BatchPortal(AddressERC1155BatchPortal, client)
+	erc1155BatchPortal, err := bindings.NewERC1155BatchPortal(AddressERC1155BatchPortal, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to ERC1155BatchPortal contract: %v", err)
 	}
-	erc1155SinglePortal, err := NewERC1155SinglePortal(AddressERC1155SinglePortal, client)
+	erc1155SinglePortal, err := bindings.NewERC1155SinglePortal(AddressERC1155SinglePortal, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to ERC1155SinglePortal contract: %v", err)
 	}
-	erc20Portal, err := NewERC20Portal(AddressERC20Portal, client)
+	erc20Portal, err := bindings.NewERC20Portal(AddressERC20Portal, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to ERC20Portal contract: %v", err)
 	}
-	erc721Portal, err := NewERC721Portal(AddressERC721Portal, client)
+	erc721Portal, err := bindings.NewERC721Portal(AddressERC721Portal, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to ERC721Portal contract: %v", err)
 	}
-	etherPortal, err := NewEtherPortal(AddressEtherPortal, client)
+	etherPortal, err := bindings.NewEtherPortal(AddressEtherPortal, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to EtherPortal contract: %v", err)
 	}
-	inputBox, err := NewInputBox(AddressInputBox, client)
+	inputBox, err := bindings.NewInputBox(AddressInputBox, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to InputBox contract: %v", err)
 	}

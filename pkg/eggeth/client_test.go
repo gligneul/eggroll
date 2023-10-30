@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gligneul/eggroll/pkg/eggeth/bindings"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -172,7 +173,7 @@ func setupEthContainer(t *testing.T, ctx context.Context) testcontainers.Contain
 }
 
 func getInput(
-	inputBox *InputBox, dappAddress common.Address, inputIndex int,
+	inputBox *bindings.InputBox, dappAddress common.Address, inputIndex int,
 ) (common.Address, []byte, error) {
 	it, err := inputBox.FilterInputAdded(
 		nil,
