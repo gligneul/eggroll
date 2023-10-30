@@ -3,6 +3,31 @@
 
 package eggeth
 
+// Use forge to build the contract; then, use abigen to generate the Go binding.
+// We opt to deploy the contract with Go instead of forge because we don't want
+// to add foundry as a runtime dependency for the EggRoll users.
+//go:generate forge build --root contracts --extra-output-files abi
+
+// TestERC20.sol
+//go:generate sh -c "jq .abi < contracts/out/TestERC20.sol/TestERC20.json > contracts/out/TestERC20.sol/TestERC20.abi"
+//go:generate sh -c "jq -r .bytecode.object < contracts/out/TestERC20.sol/TestERC20.json | cut -c 3- > contracts/out/TestERC20.sol/TestERC20.bin"
+//go:generate abigen --bin contracts/out/TestERC20.sol/TestERC20.bin --abi contracts/out/TestERC20.sol/TestERC20.abi --pkg bindings --type TestERC20 --out bindings/test_erc20.go
+
+// IERC20.sol
+//go:generate sh -c "jq .abi < contracts/out/IERC20.sol/IERC20.json > contracts/out/IERC20.sol/IERC20.abi"
+//go:generate abigen --abi contracts/out/IERC20.sol/IERC20.abi --pkg bindings --type IERC20 --out bindings/ierc20.go
+
+// Cartesi contracts
+//go:generate abigen --abi cartesi_abi/CartesiDApp.json --pkg bindings --type CartesiDApp --out bindings/cartesidapp.go
+//go:generate abigen --abi cartesi_abi/DAppAddressRelay.json --pkg bindings --type DAppAddressRelay --out bindings/dappaddressrelay.go
+//go:generate abigen --abi cartesi_abi/ERC1155BatchPortal.json --pkg bindings --type ERC1155BatchPortal --out bindings/erc1155batchportal.go
+//go:generate abigen --abi cartesi_abi/ERC1155SinglePortal.json --pkg bindings --type ERC1155SinglePortal --out bindings/erc1155singleportal.go
+//go:generate abigen --abi cartesi_abi/ERC20Portal.json --pkg bindings --type ERC20Portal --out bindings/erc20portal.go
+//go:generate abigen --abi cartesi_abi/ERC721Portal.json --pkg bindings --type ERC721Portal --out bindings/erc721portal.go
+//go:generate abigen --abi cartesi_abi/EtherPortal.json --pkg bindings --type EtherPortal --out bindings/etherportal.go
+//go:generate abigen --abi cartesi_abi/InputBox.json --pkg bindings --type InputBox --out bindings/inputbox.go
+//go:generate abigen --abi cartesi_abi/InputBox.json --pkg bindings --type InputBox --out bindings/inputbox.go
+
 import (
 	"context"
 	"encoding/json"

@@ -1,15 +1,6 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-// Use forge to build the contract; then, use abigen to generate the Go binding.
-// We opt to deploy the contract with Go instead of forge because we don't want
-// to add foundry as a runtime dependency for the EggRoll users.
-
-//go:generate forge build --root contracts --extra-output-files abi
-//go:generate sh -c "jq .abi < contracts/out/TestERC20.sol/TestERC20.json > contracts/out/TestERC20.sol/TestERC20.abi"
-//go:generate sh -c "jq -r .bytecode.object < contracts/out/TestERC20.sol/TestERC20.json | cut -c 3- > contracts/out/TestERC20.sol/TestERC20.bin"
-//go:generate abigen --bin contracts/out/TestERC20.sol/TestERC20.bin --abi contracts/out/TestERC20.sol/TestERC20.abi --pkg bindings --type TestERC20 --out bindings/test_erc20.go
-
 package eggeth
 
 import (
