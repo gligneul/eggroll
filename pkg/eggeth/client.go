@@ -156,79 +156,79 @@ func (c *ETHClient) SendERC20Tokens(
 }
 
 // Send assets to the ERC721 portal.
-func (c *ETHClient) SendERC721Token(
-	ctx context.Context,
-	signer Signer,
-	token common.Address,
-	tokenId *big.Int,
-	baseLayerData []byte,
-	input []byte,
-) (int, error) {
-	receipt, err := sendTransaction(
-		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
-		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
-			return c.erc721Portal.DepositERC721Token(
-				txOpts, token, c.dappAddress, tokenId, baseLayerData, input)
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return c.getInputIndex(ctx, receipt)
-}
+// func (c *ETHClient) SendERC721Token(
+// 	ctx context.Context,
+// 	signer Signer,
+// 	token common.Address,
+// 	tokenId *big.Int,
+// 	baseLayerData []byte,
+// 	input []byte,
+// ) (int, error) {
+// 	receipt, err := sendTransaction(
+// 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
+// 		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+// 			return c.erc721Portal.DepositERC721Token(
+// 				txOpts, token, c.dappAddress, tokenId, baseLayerData, input)
+// 		},
+// 	)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return c.getInputIndex(ctx, receipt)
+// }
 
 // Send assets ot the ERC1155 single portal.
-func (c *ETHClient) SendSingleERC1155Token(
-	ctx context.Context,
-	signer Signer,
-	token common.Address,
-	tokenId *big.Int,
-	value *big.Int,
-	baseLayerData []byte,
-	input []byte,
-) (int, error) {
-	receipt, err := sendTransaction(
-		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
-		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
-			return c.erc1155SinglePortal.DepositSingleERC1155Token(
-				txOpts, token, c.dappAddress, tokenId, value, baseLayerData, input)
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return c.getInputIndex(ctx, receipt)
-}
+// func (c *ETHClient) SendSingleERC1155Token(
+// 	ctx context.Context,
+// 	signer Signer,
+// 	token common.Address,
+// 	tokenId *big.Int,
+// 	value *big.Int,
+// 	baseLayerData []byte,
+// 	input []byte,
+// ) (int, error) {
+// 	receipt, err := sendTransaction(
+// 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
+// 		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+// 			return c.erc1155SinglePortal.DepositSingleERC1155Token(
+// 				txOpts, token, c.dappAddress, tokenId, value, baseLayerData, input)
+// 		},
+// 	)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return c.getInputIndex(ctx, receipt)
+// }
 
 // Send assets ot the ERC1155 batch portal.
-func (c *ETHClient) SendBatchERC1155Tokens(
-	ctx context.Context,
-	signer Signer,
-	token common.Address,
-	tokenIds []*big.Int,
-	values []*big.Int,
-	baseLayerData []byte,
-	input []byte,
-) (int, error) {
-	// Basic sanity check before sending the transaction.
-	if len(tokenIds) == 0 {
-		return 0, fmt.Errorf("no token ids")
-	}
-	if len(tokenIds) != len(values) {
-		return 0, fmt.Errorf("tokenIds and values mismatch")
-	}
-	receipt, err := sendTransaction(
-		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
-		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
-			return c.erc1155BatchPortal.DepositBatchERC1155Token(
-				txOpts, token, c.dappAddress, tokenIds, values, baseLayerData, input)
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return c.getInputIndex(ctx, receipt)
-}
+// func (c *ETHClient) SendBatchERC1155Tokens(
+// 	ctx context.Context,
+// 	signer Signer,
+// 	token common.Address,
+// 	tokenIds []*big.Int,
+// 	values []*big.Int,
+// 	baseLayerData []byte,
+// 	input []byte,
+// ) (int, error) {
+// 	// Basic sanity check before sending the transaction.
+// 	if len(tokenIds) == 0 {
+// 		return 0, fmt.Errorf("no token ids")
+// 	}
+// 	if len(tokenIds) != len(values) {
+// 		return 0, fmt.Errorf("tokenIds and values mismatch")
+// 	}
+// 	receipt, err := sendTransaction(
+// 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
+// 		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+// 			return c.erc1155BatchPortal.DepositBatchERC1155Token(
+// 				txOpts, token, c.dappAddress, tokenIds, values, baseLayerData, input)
+// 		},
+// 	)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return c.getInputIndex(ctx, receipt)
+// }
 
 // Get input index in the transaction by looking at the event logs.
 func (c *ETHClient) getInputIndex(ctx context.Context, receipt *types.Receipt) (int, error) {
