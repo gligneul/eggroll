@@ -138,6 +138,7 @@ func (c *ETHClient) SendEther(
 }
 
 // Send an ERC20 token to the ERC20 portal. This function also receives an optional input.
+// This function increases the allowance of the sender before sending the token, if necessary.
 // This function waits until the transaction is added to a block and return the input index.
 func (c *ETHClient) SendERC20Tokens(
 	ctx context.Context,
@@ -146,6 +147,27 @@ func (c *ETHClient) SendERC20Tokens(
 	amount *big.Int,
 	input []byte,
 ) (int, error) {
+	erc20, err := bindings.NewIERC20(token, c.client)
+	if err != nil {
+		return 0, fmt.Errorf("failed to connect to ERC20 token: %v", err)
+	}
+	currAllowance, err := erc20.Allowance(nil, signer.Account(), AddressERC20Portal)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get allowance: %v", err)
+	}
+	if currAllowance.Cmp(amount) < 0 {
+		// Approve remaining allowance to reach requested amount
+		remainingAllowance := new(big.Int).Sub(amount, currAllowance)
+		_, err := sendTransaction(
+			ctx, c.client, signer, big.NewInt(0), c.GasLimit,
+			func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+				return erc20.Approve(txOpts, AddressERC20Portal, remainingAllowance)
+			},
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to approve allowance: %v", err)
+		}
+	}
 	receipt, err := sendTransaction(
 		ctx, c.client, signer, big.NewInt(0), c.GasLimit,
 		func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
