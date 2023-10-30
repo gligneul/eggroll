@@ -1,6 +1,6 @@
 # EggRoll 🐣🛼
 
-![Build](https://github.com/gligneul/eggroll/actions/workflows/go.yml/badge.svg)
+![Tests](https://github.com/gligneul/eggroll/actions/workflows/test.yml/badge.svg)
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/gligneul/eggroll)
 [![Documentation](https://img.shields.io/static/v1?label=guide&message=documentation&color=blue)](https://gligneul.github.io/eggroll)
 

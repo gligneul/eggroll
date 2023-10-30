@@ -1,21 +1,35 @@
-# Workflow to run the examples
-
-name: Test
+name: Tests
 
 on:
   workflow_dispatch:
-  pull_request:
   push:
-    branches:
-      - main
-      - dev
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test_examples:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
+  integration:
+    name: Run integration tests
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -53,4 +67,4 @@ jobs:
       env:
         EGGTEST_RUN_INTEGRATION: true
         EGGTEST_VERBOSE: true
-      run: go test -p 1 -v ./examples/...
+      run: go test -p 1 -v ./...
