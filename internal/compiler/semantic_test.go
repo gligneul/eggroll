@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package abiparser
+package compiler
 
 import (
 	"reflect"
@@ -267,5 +267,3 @@ func TestAnalyzeStructType(t *testing.T) {
 		t.Fatalf("wrong ast: %+v", retAst)
 	}
 }
-
-//func TestFailToAnalyze(t *testing.T) {

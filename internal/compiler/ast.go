@@ -1,7 +1,7 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-package abiparser
+package compiler
 
 type Ast struct {
 	// Structs will be compiled to ABI tuples.
