@@ -151,13 +151,13 @@ structs:
     - title: string
 
   - Book:
-    - id: int256
+    - id: uint
     - title: book
     - author: string
     - chapters: Chapter[]
 
 messages:
-  - addBook:
+  - AddBook:
     - book: Book
 `))
 	if err != nil {
@@ -165,31 +165,31 @@ messages:
 	}
 	expectedAst := Ast{
 		Structs: []Struct{
-			Struct{
+			{
 				Name: "Chapter",
 				Fields: []Field{
-					Field{
+					{
 						Name: "title",
 						Type: TypeName{Name: "string"},
 					},
 				},
 			},
-			Struct{
+			{
 				Name: "Book",
 				Fields: []Field{
-					Field{
+					{
 						Name: "id",
-						Type: TypeName{Name: "int256"},
+						Type: TypeName{Name: "uint"},
 					},
-					Field{
+					{
 						Name: "title",
 						Type: TypeName{Name: "book"},
 					},
-					Field{
+					{
 						Name: "author",
 						Type: TypeName{Name: "string"},
 					},
-					Field{
+					{
 						Name: "chapters",
 						Type: TypeArray{Elem: TypeName{Name: "Chapter"}},
 					},
@@ -197,10 +197,10 @@ messages:
 			},
 		},
 		Messages: []Struct{
-			Struct{
-				Name: "addBook",
+			{
+				Name: "AddBook",
 				Fields: []Field{
-					Field{
+					{
 						Name: "book",
 						Type: TypeName{Name: "Book"},
 					},

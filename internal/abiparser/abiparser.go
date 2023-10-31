@@ -20,6 +20,10 @@ func Parse(input io.Reader) (abi.ABI, error) {
 	if err != nil {
 		return abi.ABI{}, fmt.Errorf("parse error: %v", err)
 	}
+	ast, err = analyze(ast)
+	if err != nil {
+		return abi.ABI{}, err
+	}
 	_ = ast
 	return abi.ABI{}, nil
 }

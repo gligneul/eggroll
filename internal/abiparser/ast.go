@@ -27,6 +27,23 @@ type TypeName struct {
 	Name string
 }
 
+type TypeBool struct{}
+
+type TypeInt struct {
+	Signed bool
+	Bits   int
+}
+
+type TypeAddress struct{}
+
+type TypeBytes struct{}
+
+type TypeString struct{}
+
 type TypeArray struct {
 	Elem any
+}
+
+type TypeStructRef struct {
+	Index int
 }
