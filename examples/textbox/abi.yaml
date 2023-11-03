@@ -1,0 +1,8 @@
+messages:
+  - append:
+    - value: string
+
+  - clear:
+
+  - textBox:
+    - value: string

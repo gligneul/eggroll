@@ -23,13 +23,13 @@ EggRoll users should check the documentation site above.
 ### Building
 
 ```
-go build
+go build ./...
 ```
 
 ### Unit testing
 
 ```
-go test
+go test ./...
 ```
 
 ### Integration testing

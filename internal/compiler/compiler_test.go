@@ -40,7 +40,7 @@ messages:
 	if !ok {
 		t.Fatalf("method not found")
 	}
-	if method.String() != `function AddBook((int256,string,string,()[]) book) returns()` {
+	if method.String() != `function AddBook((int256,string,string,(string)[]) book) returns()` {
 		t.Fatalf("wrong method: %v", method.String())
 	}
 }

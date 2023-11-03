@@ -82,11 +82,9 @@ func generateArg(ast Ast, name string, type_ any) jsonAbiArg {
 		}
 	case TypeArray:
 		elemType := generateArg(ast, name, type_.Elem)
-		return jsonAbiArg{
-			Name:         elemType.Name,
-			Type:         elemType.Type + "[]",
-			InternalType: elemType.InternalType + "[]",
-		}
+		elemType.Type += "[]"
+		elemType.InternalType += "[]"
+		return elemType
 	case TypeStructRef:
 		struct_ := ast.Structs[type_.Index]
 		var components []jsonAbiArg

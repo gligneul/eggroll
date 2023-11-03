@@ -1,0 +1,8 @@
+messages:
+  - deposit:
+
+  - withdraw:
+    - value: uint256
+
+  - honeypot:
+    - balance: uint256
