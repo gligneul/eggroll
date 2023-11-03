@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gligneul/eggroll/pkg/eggeth"
 	"github.com/spf13/cobra"
@@ -20,9 +19,7 @@ Deploy an ERC20 contract for testing in a local Ethereum node`,
 		ctx, cancel := contextFromTimeout()
 		defer cancel()
 		address, err := eggeth.DeployTestERC20(ctx, deployArgs.rpc)
-		if err != nil {
-			log.Fatal(err)
-		}
+		cobra.CheckErr(err)
 		fmt.Println(address)
 	},
 }
