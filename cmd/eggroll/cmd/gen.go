@@ -18,7 +18,7 @@ var genArgs struct {
 }
 
 var genCmd = &cobra.Command{
-	Use:   "abi-gen",
+	Use:   "gen",
 	Short: "Generate ABI bindings",
 	Long:  `Generate the Go bindings for the given ABI yaml file.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -40,7 +40,7 @@ var genCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(genCmd)
+	abiCmd.AddCommand(genCmd)
 
 	genCmd.Flags().StringVar(
 		&genArgs.inputPath, "input", "abi.yaml", "Input file that contains the ABI yaml")
