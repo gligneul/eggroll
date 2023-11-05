@@ -3,7 +3,7 @@
 
 package main
 
-//go:generate go run github.com/gligneul/eggroll/cmd/eggroll abi-gen
+//go:generate go run github.com/gligneul/eggroll/cmd/eggroll abi gen
 
 import (
 	"fmt"

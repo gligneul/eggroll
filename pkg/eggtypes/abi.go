@@ -5,6 +5,7 @@ package eggtypes
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -57,6 +58,18 @@ func MustAddEncoding(encoding Encoding) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// Get all encodings.
+func GetEncodings() []Encoding {
+	var es []Encoding
+	for _, e := range encodings.byName {
+		es = append(es, e)
+	}
+	sort.Slice(es, func(i, j int) bool {
+		return es[i].Name < es[j].Name
+	})
+	return es
 }
 
 // This function should not be called directly; call the Pack method of the

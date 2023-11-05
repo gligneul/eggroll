@@ -11,28 +11,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var genArgs struct {
-	inputPath   string
+var abiGenArgs struct {
 	outputPath  string
 	packageName string
 }
 
-var genCmd = &cobra.Command{
+var abiGenCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "Generate ABI bindings",
 	Long:  `Generate the Go bindings for the given ABI yaml file.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		inputFile, err := os.Open(genArgs.inputPath)
+		inputFile, err := os.Open(abiArgs.yamlPath)
 		cobra.CheckErr(err)
 		defer inputFile.Close()
 
 		abiJson, err := compiler.Compile(inputFile)
 		cobra.CheckErr(err)
 
-		code, err := codegen.Gen(abiJson, genArgs.packageName)
+		code, err := codegen.Gen(abiJson, abiGenArgs.packageName)
 		cobra.CheckErr(err)
 
-		outputFile, err := os.Create(genArgs.outputPath)
+		outputFile, err := os.Create(abiGenArgs.outputPath)
 		cobra.CheckErr(err)
 		defer outputFile.Close()
 		outputFile.Write([]byte(code))
@@ -40,14 +39,11 @@ var genCmd = &cobra.Command{
 }
 
 func init() {
-	abiCmd.AddCommand(genCmd)
+	abiCmd.AddCommand(abiGenCmd)
 
-	genCmd.Flags().StringVar(
-		&genArgs.inputPath, "input", "abi.yaml", "Input file that contains the ABI yaml")
+	abiGenCmd.Flags().StringVar(
+		&abiGenArgs.outputPath, "output", "abi.go", "Output file for the generated Go binding")
 
-	genCmd.Flags().StringVar(
-		&genArgs.outputPath, "output", "abi.go", "Output file for the generated Go binding")
-
-	genCmd.Flags().StringVar(
-		&genArgs.packageName, "package", "main", "Name of the generated package")
+	abiGenCmd.Flags().StringVar(
+		&abiGenArgs.packageName, "package", "main", "Name of the generated package")
 }

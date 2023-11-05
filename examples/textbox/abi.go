@@ -169,19 +169,19 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
-	eggtypes.AddEncoding(eggtypes.Encoding{
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
 		ID:        AppendID,
 		Name:      "append",
 		Arguments: abiInterface.Methods["append"].Inputs,
 		Unpacker:  _unpack_Append,
 	})
-	eggtypes.AddEncoding(eggtypes.Encoding{
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
 		ID:        ClearID,
 		Name:      "clear",
 		Arguments: abiInterface.Methods["clear"].Inputs,
 		Unpacker:  _unpack_Clear,
 	})
-	eggtypes.AddEncoding(eggtypes.Encoding{
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
 		ID:        TextBoxID,
 		Name:      "textBox",
 		Arguments: abiInterface.Methods["textBox"].Inputs,

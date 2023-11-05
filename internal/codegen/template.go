@@ -133,7 +133,7 @@ func init() {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
 	{{- range $message := .Messages}}
-		eggtypes.AddEncoding(eggtypes.Encoding{
+		eggtypes.MustAddEncoding(eggtypes.Encoding{
 			ID:        {{$message.Name}}ID,
 			Name:      "{{$message.RawName}}",
 			Arguments: abiInterface.Methods["{{$message.RawName}}"].Inputs,

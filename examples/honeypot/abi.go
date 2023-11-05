@@ -22,11 +22,6 @@ var (
 // Types
 //
 
-// Message with selector a7353783
-type Honeypot struct {
-	Balance *big.Int
-}
-
 // Message with selector d0e30db0
 type Deposit struct {
 }
@@ -36,12 +31,14 @@ type Withdraw struct {
 	Value *big.Int
 }
 
+// Message with selector a7353783
+type Honeypot struct {
+	Balance *big.Int
+}
+
 //
 // IDs
 //
-
-// Honeypot ID (a7353783)
-var HoneypotID = [4]byte{167, 53, 55, 131}
 
 // Deposit ID (d0e30db0)
 var DepositID = [4]byte{208, 227, 13, 176}
@@ -49,20 +46,12 @@ var DepositID = [4]byte{208, 227, 13, 176}
 // Withdraw ID (2e1a7d4d)
 var WithdrawID = [4]byte{46, 26, 125, 77}
 
+// Honeypot ID (a7353783)
+var HoneypotID = [4]byte{167, 53, 55, 131}
+
 //
 // Pack
 //
-
-// Pack message Honeypot into an ABI payload.
-func (v Honeypot) Pack() []byte {
-	payload, err := eggtypes.PackValues(HoneypotID,
-		v.Balance,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to pack Honeypot: %v", err))
-	}
-	return payload
-}
 
 // Pack message Deposit into an ABI payload.
 func (v Deposit) Pack() []byte {
@@ -84,22 +73,20 @@ func (v Withdraw) Pack() []byte {
 	return payload
 }
 
+// Pack message Honeypot into an ABI payload.
+func (v Honeypot) Pack() []byte {
+	payload, err := eggtypes.PackValues(HoneypotID,
+		v.Balance,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to pack Honeypot: %v", err))
+	}
+	return payload
+}
+
 //
 // Unpack
 //
-
-func _unpack_Honeypot(values []any) (any, error) {
-	if len(values) != 1 {
-		return nil, fmt.Errorf("wrong number of values")
-	}
-	var ok bool
-	var v Honeypot
-	v.Balance, ok = values[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("failed to unpack Honeypot.Balance")
-	}
-	return v, nil
-}
 
 func _unpack_Deposit(values []any) (any, error) {
 	if len(values) != 0 {
@@ -118,6 +105,19 @@ func _unpack_Withdraw(values []any) (any, error) {
 	v.Value, ok = values[0].(*big.Int)
 	if !ok {
 		return nil, fmt.Errorf("failed to unpack Withdraw.Value")
+	}
+	return v, nil
+}
+
+func _unpack_Honeypot(values []any) (any, error) {
+	if len(values) != 1 {
+		return nil, fmt.Errorf("wrong number of values")
+	}
+	var ok bool
+	var v Honeypot
+	v.Balance, ok = values[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("failed to unpack Honeypot.Balance")
 	}
 	return v, nil
 }
@@ -169,22 +169,22 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
-	eggtypes.AddEncoding(eggtypes.Encoding{
-		ID:        HoneypotID,
-		Name:      "honeypot",
-		Arguments: abiInterface.Methods["honeypot"].Inputs,
-		Unpacker:  _unpack_Honeypot,
-	})
-	eggtypes.AddEncoding(eggtypes.Encoding{
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
 		ID:        DepositID,
 		Name:      "deposit",
 		Arguments: abiInterface.Methods["deposit"].Inputs,
 		Unpacker:  _unpack_Deposit,
 	})
-	eggtypes.AddEncoding(eggtypes.Encoding{
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
 		ID:        WithdrawID,
 		Name:      "withdraw",
 		Arguments: abiInterface.Methods["withdraw"].Inputs,
 		Unpacker:  _unpack_Withdraw,
+	})
+	eggtypes.MustAddEncoding(eggtypes.Encoding{
+		ID:        HoneypotID,
+		Name:      "honeypot",
+		Arguments: abiInterface.Methods["honeypot"].Inputs,
+		Unpacker:  _unpack_Honeypot,
 	})
 }
