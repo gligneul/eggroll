@@ -15,7 +15,7 @@ import (
 var (
 	_ = big.NewInt
 	_ = common.Big1
-	_ = eggtypes.Pack
+	_ = eggtypes.PackValues
 )
 
 //
@@ -50,18 +50,12 @@ var ClearID = [4]byte{82, 239, 234, 110}
 var TextBoxID = [4]byte{9, 223, 89, 208}
 
 //
-// JSON ABI
-//
-
-const _JSON_ABI = "[\n  {\n    \"name\": \"append\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": [\n      {\n        \"name\": \"value\",\n        \"type\": \"string\",\n        \"internalType\": \"string\",\n        \"components\": null\n      }\n    ],\n    \"outputs\": null\n  },\n  {\n    \"name\": \"clear\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": null,\n    \"outputs\": null\n  },\n  {\n    \"name\": \"textBox\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": [\n      {\n        \"name\": \"value\",\n        \"type\": \"string\",\n        \"internalType\": \"string\",\n        \"components\": null\n      }\n    ],\n    \"outputs\": null\n  }\n]"
-
-//
 // Pack
 //
 
 // Pack message Append into an ABI payload.
 func (v Append) Pack() []byte {
-	payload, err := eggtypes.Pack("append",
+	payload, err := eggtypes.PackValues(AppendID,
 		v.Value,
 	)
 	if err != nil {
@@ -72,7 +66,7 @@ func (v Append) Pack() []byte {
 
 // Pack message Clear into an ABI payload.
 func (v Clear) Pack() []byte {
-	payload, err := eggtypes.Pack("clear")
+	payload, err := eggtypes.PackValues(ClearID)
 	if err != nil {
 		panic(fmt.Sprintf("failed to pack Clear: %v", err))
 	}
@@ -81,7 +75,7 @@ func (v Clear) Pack() []byte {
 
 // Pack message TextBox into an ABI payload.
 func (v TextBox) Pack() []byte {
-	payload, err := eggtypes.Pack("textBox",
+	payload, err := eggtypes.PackValues(TextBoxID,
 		v.Value,
 	)
 	if err != nil {
@@ -133,11 +127,64 @@ func _unpack_TextBox(values []any) (any, error) {
 //
 
 func init() {
-	abiInterface, err := abi.JSON(strings.NewReader(_JSON_ABI))
+	const jsonAbi = `[
+  {
+    "name": "append",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "string",
+        "internalType": "string",
+        "components": null
+      }
+    ],
+    "outputs": null
+  },
+  {
+    "name": "clear",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  },
+  {
+    "name": "textBox",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "string",
+        "internalType": "string",
+        "components": null
+      }
+    ],
+    "outputs": null
+  }
+]
+	`
+	abiInterface, err := abi.JSON(strings.NewReader(jsonAbi))
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
-	eggtypes.AddMethod(abiInterface.Methods["append"], _unpack_Append)
-	eggtypes.AddMethod(abiInterface.Methods["clear"], _unpack_Clear)
-	eggtypes.AddMethod(abiInterface.Methods["textBox"], _unpack_TextBox)
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        AppendID,
+		Name:      "append",
+		Arguments: abiInterface.Methods["append"].Inputs,
+		Unpacker:  _unpack_Append,
+	})
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        ClearID,
+		Name:      "clear",
+		Arguments: abiInterface.Methods["clear"].Inputs,
+		Unpacker:  _unpack_Clear,
+	})
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        TextBoxID,
+		Name:      "textBox",
+		Arguments: abiInterface.Methods["textBox"].Inputs,
+		Unpacker:  _unpack_TextBox,
+	})
 }

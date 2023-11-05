@@ -15,12 +15,17 @@ import (
 var (
 	_ = big.NewInt
 	_ = common.Big1
-	_ = eggtypes.Pack
+	_ = eggtypes.PackValues
 )
 
 //
 // Types
 //
+
+// Message with selector a7353783
+type Honeypot struct {
+	Balance *big.Int
+}
 
 // Message with selector d0e30db0
 type Deposit struct {
@@ -31,14 +36,12 @@ type Withdraw struct {
 	Value *big.Int
 }
 
-// Message with selector a7353783
-type Honeypot struct {
-	Balance *big.Int
-}
-
 //
 // IDs
 //
+
+// Honeypot ID (a7353783)
+var HoneypotID = [4]byte{167, 53, 55, 131}
 
 // Deposit ID (d0e30db0)
 var DepositID = [4]byte{208, 227, 13, 176}
@@ -46,42 +49,13 @@ var DepositID = [4]byte{208, 227, 13, 176}
 // Withdraw ID (2e1a7d4d)
 var WithdrawID = [4]byte{46, 26, 125, 77}
 
-// Honeypot ID (a7353783)
-var HoneypotID = [4]byte{167, 53, 55, 131}
-
-//
-// JSON ABI
-//
-
-const _JSON_ABI = "[\n  {\n    \"name\": \"deposit\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": null,\n    \"outputs\": null\n  },\n  {\n    \"name\": \"withdraw\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": [\n      {\n        \"name\": \"value\",\n        \"type\": \"uint256\",\n        \"internalType\": \"uint256\",\n        \"components\": null\n      }\n    ],\n    \"outputs\": null\n  },\n  {\n    \"name\": \"honeypot\",\n    \"type\": \"function\",\n    \"stateMutability\": \"nonpayable\",\n    \"inputs\": [\n      {\n        \"name\": \"balance\",\n        \"type\": \"uint256\",\n        \"internalType\": \"uint256\",\n        \"components\": null\n      }\n    ],\n    \"outputs\": null\n  }\n]"
-
 //
 // Pack
 //
 
-// Pack message Deposit into an ABI payload.
-func (v Deposit) Pack() []byte {
-	payload, err := eggtypes.Pack("deposit")
-	if err != nil {
-		panic(fmt.Sprintf("failed to pack Deposit: %v", err))
-	}
-	return payload
-}
-
-// Pack message Withdraw into an ABI payload.
-func (v Withdraw) Pack() []byte {
-	payload, err := eggtypes.Pack("withdraw",
-		v.Value,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to pack Withdraw: %v", err))
-	}
-	return payload
-}
-
 // Pack message Honeypot into an ABI payload.
 func (v Honeypot) Pack() []byte {
-	payload, err := eggtypes.Pack("honeypot",
+	payload, err := eggtypes.PackValues(HoneypotID,
 		v.Balance,
 	)
 	if err != nil {
@@ -90,9 +64,42 @@ func (v Honeypot) Pack() []byte {
 	return payload
 }
 
+// Pack message Deposit into an ABI payload.
+func (v Deposit) Pack() []byte {
+	payload, err := eggtypes.PackValues(DepositID)
+	if err != nil {
+		panic(fmt.Sprintf("failed to pack Deposit: %v", err))
+	}
+	return payload
+}
+
+// Pack message Withdraw into an ABI payload.
+func (v Withdraw) Pack() []byte {
+	payload, err := eggtypes.PackValues(WithdrawID,
+		v.Value,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to pack Withdraw: %v", err))
+	}
+	return payload
+}
+
 //
 // Unpack
 //
+
+func _unpack_Honeypot(values []any) (any, error) {
+	if len(values) != 1 {
+		return nil, fmt.Errorf("wrong number of values")
+	}
+	var ok bool
+	var v Honeypot
+	v.Balance, ok = values[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("failed to unpack Honeypot.Balance")
+	}
+	return v, nil
+}
 
 func _unpack_Deposit(values []any) (any, error) {
 	if len(values) != 0 {
@@ -115,29 +122,69 @@ func _unpack_Withdraw(values []any) (any, error) {
 	return v, nil
 }
 
-func _unpack_Honeypot(values []any) (any, error) {
-	if len(values) != 1 {
-		return nil, fmt.Errorf("wrong number of values")
-	}
-	var ok bool
-	var v Honeypot
-	v.Balance, ok = values[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("failed to unpack Honeypot.Balance")
-	}
-	return v, nil
-}
-
 //
 // Init
 //
 
 func init() {
-	abiInterface, err := abi.JSON(strings.NewReader(_JSON_ABI))
+	const jsonAbi = `[
+  {
+    "name": "deposit",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  },
+  {
+    "name": "withdraw",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256",
+        "components": null
+      }
+    ],
+    "outputs": null
+  },
+  {
+    "name": "honeypot",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256",
+        "components": null
+      }
+    ],
+    "outputs": null
+  }
+]
+	`
+	abiInterface, err := abi.JSON(strings.NewReader(jsonAbi))
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
-	eggtypes.AddMethod(abiInterface.Methods["deposit"], _unpack_Deposit)
-	eggtypes.AddMethod(abiInterface.Methods["withdraw"], _unpack_Withdraw)
-	eggtypes.AddMethod(abiInterface.Methods["honeypot"], _unpack_Honeypot)
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        HoneypotID,
+		Name:      "honeypot",
+		Arguments: abiInterface.Methods["honeypot"].Inputs,
+		Unpacker:  _unpack_Honeypot,
+	})
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        DepositID,
+		Name:      "deposit",
+		Arguments: abiInterface.Methods["deposit"].Inputs,
+		Unpacker:  _unpack_Deposit,
+	})
+	eggtypes.AddEncoding(eggtypes.Encoding{
+		ID:        WithdrawID,
+		Name:      "withdraw",
+		Arguments: abiInterface.Methods["withdraw"].Inputs,
+		Unpacker:  _unpack_Withdraw,
+	})
 }

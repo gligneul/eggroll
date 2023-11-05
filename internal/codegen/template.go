@@ -45,7 +45,7 @@ import (
 var (
 	_ = big.NewInt
 	_ = common.Big1
-	_ = eggtypes.Pack
+	_ = eggtypes.PackValues
 )
 
 //
@@ -78,19 +78,13 @@ var (
 {{end}}
 
 //
-// JSON ABI
-//
-
-const _JSON_ABI = {{printf "%q" .JsonAbi}}
-
-//
 // Pack
 //
 
 {{range $message := .Messages}}
 	// Pack message {{$message.Name}} into an ABI payload.
 	func (v {{$message.Name}}) Pack() []byte {
-		payload, err := eggtypes.Pack("{{$message.RawName}}",
+		payload, err := eggtypes.PackValues({{$message.Name}}ID,
 		{{- range $field := .Fields}}
 			v.{{$field.Name}},
 		{{- end}}
@@ -130,12 +124,21 @@ const _JSON_ABI = {{printf "%q" .JsonAbi}}
 //
 
 func init() {
-	abiInterface, err := abi.JSON(strings.NewReader(_JSON_ABI))
+	{{- /* This might be unsafe but it is easier to debug.
+	       An alternative is to use 'printf "%q" .JsonAbi'. */ -}}
+	const jsonAbi = ` + "`" + `{{.JsonAbi}}
+	` + "`" + `
+	abiInterface, err := abi.JSON(strings.NewReader(jsonAbi))
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
 	{{- range $message := .Messages}}
-		eggtypes.AddMethod(abiInterface.Methods["{{$message.RawName}}"], _unpack_{{$message.Name}})
+		eggtypes.AddEncoding(eggtypes.Encoding{
+			ID:        {{$message.Name}}ID,
+			Name:      "{{$message.RawName}}",
+			Arguments: abiInterface.Methods["{{$message.RawName}}"].Inputs,
+			Unpacker:  _unpack_{{$message.Name}},
+		})
 	{{- end}}
 }
 `

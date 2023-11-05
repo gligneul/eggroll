@@ -10,57 +10,84 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// ID used to select the corresponding unpacker.
+// This is the function selector in Solidity ABI.
+type ID [4]byte
+
 // Pack a Go value into ABI data.
 type Packer interface {
 	Pack() []byte
 }
 
-// Receive an array of values from the ABI.Unpack method and return the
-// corresponding Go value.
+// Unpack an array of values into a Go value.
 type Unpacker func([]any) (any, error)
 
-var globalMetadata struct {
-	abi       abi.ABI
-	unpackers map[string]Unpacker
+// ABI encoding value.
+type Encoding struct {
+	ID
+	Name string
+	abi.Arguments
+	Unpacker
 }
 
-// Add a new ABI method with an unpacker to the EggRoll ABI.
-func AddMethod(method abi.Method, unpacker Unpacker) {
-	if globalMetadata.unpackers == nil {
-		globalMetadata.unpackers = make(map[string]Unpacker)
-	}
-	if globalMetadata.abi.Methods == nil {
-		globalMetadata.abi.Methods = make(map[string]abi.Method)
-	}
-	found, _ := globalMetadata.abi.MethodById(method.ID)
-	if found != nil {
-		panic(fmt.Errorf("method already registred: %#v", method))
-	}
-	globalMetadata.abi.Methods[method.Name] = method
-	globalMetadata.unpackers[method.Name] = unpacker
+var encodings struct {
+	byID   map[ID]Encoding
+	byName map[string]Encoding
 }
 
-// Pack the given method name to conform the ABI.
-// For more info, see abi.ABI.Pack.
-func Pack(name string, args ...interface{}) ([]byte, error) {
-	return globalMetadata.abi.Pack(name, args...)
+// Add a new encoding to the EggRoll ABI.
+func AddEncoding(encoding Encoding) error {
+	_, ok := encodings.byID[encoding.ID]
+	if ok {
+		return fmt.Errorf("duplicate encoding with id: %x", encoding.ID)
+	}
+	_, ok = encodings.byName[encoding.Name]
+	if ok {
+		return fmt.Errorf("duplicate encoding with name: %v", encoding.Name)
+	}
+	encodings.byID[encoding.ID] = encoding
+	encodings.byName[encoding.Name] = encoding
+	return nil
+}
+
+// Add a new encoding to the EggRoll ABI.
+// Panic if an error occurs.
+func MustAddEncoding(encoding Encoding) {
+	err := AddEncoding(encoding)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// This function should not be called directly; call the Pack method of the
+// Packer value instead.
+func PackValues(id ID, args ...interface{}) ([]byte, error) {
+	encoding, ok := encodings.byID[id]
+	if !ok {
+		return nil, fmt.Errorf("encoding not found for ID: %x", id)
+	}
+	data, err := encoding.Arguments.Pack(args...)
+	if err != nil {
+		return nil, err
+	}
+	return append(id[:], data...), nil
 }
 
 // Unpack the data into a Go value.
 func Unpack(data []byte) (any, error) {
 	if (len(data)-4)%32 != 0 {
-		return nil, fmt.Errorf("improperly formatted output: %x", data)
+		return nil, fmt.Errorf("improperly formatted data: %x", data)
 	}
-	method, err := globalMetadata.abi.MethodById(data)
-	if err != nil {
-		return nil, err
+	id := ID(data[:4])
+	encoding, ok := encodings.byID[id]
+	if !ok {
+		return nil, fmt.Errorf("encoding not found for ID: %x", id)
 	}
-	values, err := method.Inputs.Unpack(data[4:])
+	values, err := encoding.Arguments.Unpack(data[4:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack: %v", err)
 	}
-	unpacker := globalMetadata.unpackers[method.Name]
-	return unpacker(values)
+	return encoding.Unpacker(values)
 }
 
 // Log messages from a DApp contract.
@@ -68,19 +95,37 @@ type Log struct {
 	Message string
 }
 
+// ID for the log message type.
+// The ABI prototype is `log(string)`.
+var LogID = ID([]byte{0x41, 0x30, 0x4f, 0xac})
+
+// Pack the log to into an ABI payload.
 func (l Log) Pack() []byte {
-	payload, err := Pack("Log", l.Message)
+	payload, err := PackValues(LogID, l.Message)
 	if err != nil {
 		panic(fmt.Sprintf("failed to pack log: %v", err))
 	}
 	return payload
 }
 
-var LogID [4]byte
+func _log_Unpack(values []any) (any, error) {
+	if len(values) != 1 {
+		return nil, fmt.Errorf("wrong number of values")
+	}
+	var ok bool
+	var log Log
+	log.Message, ok = values[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to unpack log.Payload")
+	}
+	return log, nil
+}
 
 func init() {
-	abiJson := `
-	[
+	encodings.byID = make(map[ID]Encoding)
+	encodings.byName = make(map[string]Encoding)
+
+	const jsonAbi = `[
 	  {
 	    "inputs": [
 	      {
@@ -89,27 +134,20 @@ func init() {
 		"type": "string"
 	      }
 	    ],
-	    "name": "Log",
+	    "name": "log",
 	    "outputs": [],
 	    "stateMutability": "",
 	    "type": "function"
 	  }
 	]`
-	abiInterface, err := abi.JSON(strings.NewReader(abiJson))
+	abiInterface, err := abi.JSON(strings.NewReader(jsonAbi))
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
-	LogID = [4]byte(abiInterface.Methods["Log"].ID)
-	AddMethod(abiInterface.Methods["Log"], func(values []any) (any, error) {
-		if len(values) != 1 {
-			return nil, fmt.Errorf("wrong number of values")
-		}
-		var ok bool
-		var log Log
-		log.Message, ok = values[0].(string)
-		if !ok {
-			return nil, fmt.Errorf("failed to unpack log.Payload")
-		}
-		return log, nil
+	MustAddEncoding(Encoding{
+		ID:        LogID,
+		Name:      "log",
+		Arguments: abiInterface.Methods["log"].Inputs,
+		Unpacker:  _log_Unpack,
 	})
 }
