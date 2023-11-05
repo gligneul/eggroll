@@ -104,13 +104,17 @@ func Unpack(data []byte) (any, error) {
 	return encoding.Unpacker(values)
 }
 
-// Unpack the ABI data into a JSON message.
+type jsonMessage struct {
+	Name string         `json:"name"`
+	Args map[string]any `json:"args"`
+}
+
+// Unpack the ABI payload into a JSON message.
 //
 // JSON Format:
 //
 //	{
 //	  "name": "<encodingName>",
-//	  "id": "<id in hex>",
 //	  "args": {
 //	    "<argName>": <argValue>
 //	  }
@@ -125,17 +129,47 @@ func UnpackToJson(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("encoding not found for ID: %x", id)
 	}
 
-	var jsonMessage struct {
-		Name string                 `json:"name"`
-		Args map[string]interface{} `json:"args"`
-	}
+	var jsonMessage jsonMessage
 	jsonMessage.Name = encoding.Name
-	jsonMessage.Args = make(map[string]interface{})
+	jsonMessage.Args = make(map[string]any)
 	err := encoding.Arguments.UnpackIntoMap(jsonMessage.Args, data[4:])
 	if err != nil {
 		return nil, err
 	}
 	return json.MarshalIndent(jsonMessage, "", "  ")
+}
+
+// Pack the JSON message into an ABI payload.
+//
+// JSON Format:
+//
+//	{
+//	  "name": "<encodingName>",
+//	  "args": {
+//	    "<argName>": <argValue>
+//	  }
+//	}
+func PackFromJson(rawJson []byte) ([]byte, error) {
+	var jsonMessage jsonMessage
+	err := json.Unmarshal(rawJson, &jsonMessage)
+	if err != nil {
+		return nil, err
+	}
+
+	encoding, ok := encodings.byName[jsonMessage.Name]
+	if !ok {
+		return nil, fmt.Errorf("encoding not found for name: %v", jsonMessage.Name)
+	}
+
+	var args []any
+	for i := range encoding.Arguments {
+		args = append(args, jsonMessage.Args[encoding.Arguments[i].Name])
+	}
+	data, err := encoding.Arguments.PackValues(args)
+	if err != nil {
+		return nil, err
+	}
+	return append(encoding.ID[:], data...), nil
 }
 
 // Log messages from a DApp contract.
