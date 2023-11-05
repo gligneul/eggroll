@@ -4,6 +4,7 @@
 package eggtypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -101,6 +102,40 @@ func Unpack(data []byte) (any, error) {
 		return nil, fmt.Errorf("failed to unpack: %v", err)
 	}
 	return encoding.Unpacker(values)
+}
+
+// Unpack the ABI data into a JSON message.
+//
+// JSON Format:
+//
+//	{
+//	  "name": "<encodingName>",
+//	  "id": "<id in hex>",
+//	  "args": {
+//	    "<argName>": <argValue>
+//	  }
+//	}
+func UnpackToJson(data []byte) ([]byte, error) {
+	if (len(data)-4)%32 != 0 {
+		return nil, fmt.Errorf("improperly formatted data: %x", data)
+	}
+	id := ID(data[:4])
+	encoding, ok := encodings.byID[id]
+	if !ok {
+		return nil, fmt.Errorf("encoding not found for ID: %x", id)
+	}
+
+	var jsonMessage struct {
+		Name string                 `json:"name"`
+		Args map[string]interface{} `json:"args"`
+	}
+	jsonMessage.Name = encoding.Name
+	jsonMessage.Args = make(map[string]interface{})
+	err := encoding.Arguments.UnpackIntoMap(jsonMessage.Args, data[4:])
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(jsonMessage, "", "  ")
 }
 
 // Log messages from a DApp contract.

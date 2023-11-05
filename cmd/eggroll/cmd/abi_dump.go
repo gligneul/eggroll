@@ -22,7 +22,10 @@ var abiDumpArgs struct {
 var abiDumpCmd = &cobra.Command{
 	Use:   "dump",
 	Short: "Dump ABI bindings",
-	Long:  ``,
+	Example: `eggroll abi dump
+
+output:
+41304fac log(string)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		inputFile, err := os.Open(abiArgs.yamlPath)
 		cobra.CheckErr(err)
