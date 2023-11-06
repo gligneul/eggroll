@@ -13,18 +13,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var abiArgs struct {
+var schemaArgs struct {
 	yamlPath string
 }
 
-var abiCmd = &cobra.Command{
-	Use:   "abi",
-	Short: "Commands related to ABI encoding",
+var schemaCmd = &cobra.Command{
+	Use:   "schema",
+	Short: "Commands related to schema encoding and decoding",
 }
 
-// Load the ABI into eggtypes and return the JSON ABI.
-func abiLoad() string {
-	inputFile, err := os.Open(abiArgs.yamlPath)
+// Load the schema into eggtypes and return the JSON ABI.
+func schemaLoad() string {
+	inputFile, err := os.Open(schemaArgs.yamlPath)
 	cobra.CheckErr(err)
 	defer inputFile.Close()
 
@@ -35,9 +35,9 @@ func abiLoad() string {
 	cobra.CheckErr(err)
 
 	for _, method := range a.Methods {
-		err := eggtypes.AddEncoding(eggtypes.Encoding{
+		err := eggtypes.AddSchema(eggtypes.MessageSchema{
 			ID:        eggtypes.ID(method.ID),
-			Name:      method.Name,
+			Kind:      method.Name,
 			Arguments: method.Inputs,
 		})
 		cobra.CheckErr(err)
@@ -47,8 +47,8 @@ func abiLoad() string {
 }
 
 func init() {
-	rootCmd.AddCommand(abiCmd)
+	rootCmd.AddCommand(schemaCmd)
 
-	abiCmd.PersistentFlags().StringVar(
-		&abiArgs.yamlPath, "input", "abi.yaml", "Input file that contains the ABI yaml")
+	schemaCmd.PersistentFlags().StringVar(
+		&schemaArgs.yamlPath, "schema", "schema.yaml", "Yaml file that contains the schema")
 }

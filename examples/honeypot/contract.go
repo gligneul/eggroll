@@ -3,7 +3,7 @@
 
 package main
 
-//go:generate go run github.com/gligneul/eggroll/cmd/eggroll abi gen
+//go:generate go run github.com/gligneul/eggroll/cmd/eggroll schema gen
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ func init() {
 type Contract struct{}
 
 func (c *Contract) Advance(env eggroll.Env, input []byte) error {
-	unpacked, err := eggtypes.Unpack(input)
+	unpacked, err := eggtypes.Decode(input)
 	if err != nil {
 		return err
 	}
@@ -69,10 +69,7 @@ func (c *Contract) Inspect(env eggroll.EnvReader, input []byte) error {
 }
 
 func reportHoneypot(env eggroll.EnvReader) {
-	honeypot := Honeypot{
-		Balance: env.EtherBalanceOf(Owner),
-	}
-	env.Report(honeypot.Pack())
+	env.Report(EncodeHoneypot(env.EtherBalanceOf(Owner)))
 }
 
 func main() {

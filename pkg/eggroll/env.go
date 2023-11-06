@@ -63,8 +63,7 @@ func (e *env) setDAppAddress(address *common.Address) {
 // Log the message and send a report.
 func (e *env) log(message string) {
 	e.logger.Print(message)
-	log := eggtypes.Log{Message: message}
-	e.Report(log.Pack())
+	e.Report(eggtypes.EncodeLog(message))
 }
 
 // Log the message, send a report, and exit.

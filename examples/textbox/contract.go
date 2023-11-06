@@ -3,7 +3,7 @@
 
 package main
 
-//go:generate go run github.com/gligneul/eggroll/cmd/eggroll abi gen
+//go:generate go run github.com/gligneul/eggroll/cmd/eggroll schema gen
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ type Contract struct {
 }
 
 func (c *Contract) Advance(env eggroll.Env, input []byte) error {
-	unpacked, err := eggtypes.Unpack(input)
+	unpacked, err := eggtypes.Decode(input)
 	if err != nil {
 		return err
 	}
@@ -25,12 +25,12 @@ func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 	case Clear:
 		env.Log("received input clear")
 		c.TextBox.Value = ""
-		env.Report(c.TextBox.Pack())
+		env.Report(c.TextBox.Encode())
 		return nil
 	case Append:
 		env.Logf("received input append with '%v'\n", input.Value)
 		c.TextBox.Value += input.Value
-		env.Report(c.TextBox.Pack())
+		env.Report(c.TextBox.Encode())
 		return nil
 	default:
 		return fmt.Errorf("unknown input: %T", input)
@@ -38,7 +38,7 @@ func (c *Contract) Advance(env eggroll.Env, input []byte) error {
 }
 
 func (c *Contract) Inspect(env eggroll.EnvReader, input []byte) error {
-	env.Report(c.TextBox.Pack())
+	env.Report(c.TextBox.Encode())
 	return nil
 }
 

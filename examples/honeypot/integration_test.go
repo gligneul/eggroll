@@ -42,14 +42,14 @@ func TestHoneypot(t *testing.T) {
 		t.Fatalf("failed to send dapp address: %v", err)
 	}
 	deposit := Deposit{}
-	_, err = client.Eth.SendEther(ctx, signer, big.NewInt(100), deposit.Pack())
+	_, err = client.Eth.SendEther(ctx, signer, big.NewInt(100), deposit.Encode())
 	if err != nil {
 		t.Fatalf("failed to send dapp ether: %v", err)
 	}
 	withdraw := Withdraw{
 		Value: big.NewInt(50),
 	}
-	index, err := client.Eth.SendInput(ctx, signer, withdraw.Pack())
+	index, err := client.Eth.SendInput(ctx, signer, withdraw.Encode())
 	if err != nil {
 		t.Fatalf("failed to send withdraw: %v", err)
 	}

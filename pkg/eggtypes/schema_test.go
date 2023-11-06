@@ -27,13 +27,13 @@ func TestLogABI(t *testing.T) {
 		"68656c6c6f000000000000000000000000000000000000000000000000000000")
 
 	// Test pack
-	packData := log.Pack()
+	packData := log.Encode()
 	if !bytes.Equal(packData, expectedData) {
 		t.Fatalf("wrong pack return; got %x", packData)
 	}
 
 	// Test unpack
-	value, err := Unpack(packData)
+	value, err := Decode(packData)
 	if err != nil {
 		t.Fatalf("failed to decode log: %v", err)
 	}

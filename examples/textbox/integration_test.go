@@ -33,27 +33,27 @@ func TestTextBox(t *testing.T) {
 		t.Fatalf("failed to create client: %v", err)
 	}
 
-	inputs := []eggtypes.Packer{
-		&Append{Value: "egg"},
-		&Append{Value: "roll"},
+	inputs := []eggtypes.Encoder{
+		Append{Value: "egg"},
+		Append{Value: "roll"},
 	}
 	sendInputsAndVerifyState(t, ctx, client, signer, inputs, "eggroll")
 
-	inputs = []eggtypes.Packer{
-		&Clear{},
-		&Append{Value: "hi"},
+	inputs = []eggtypes.Encoder{
+		Clear{},
+		Append{Value: "hi"},
 	}
 	sendInputsAndVerifyState(t, ctx, client, signer, inputs, "hi")
 }
 
 func sendInputsAndVerifyState(
 	t *testing.T, ctx context.Context, client *eggroll.Client,
-	signer eggeth.Signer, inputs []eggtypes.Packer, expectedState string) {
+	signer eggeth.Signer, inputs []eggtypes.Encoder, expectedState string) {
 
 	var lastInputIndex int
 	for _, input := range inputs {
 		var err error
-		lastInputIndex, err = client.Eth.SendInput(ctx, signer, input.Pack())
+		lastInputIndex, err = client.Eth.SendInput(ctx, signer, input.Encode())
 		if err != nil {
 			t.Fatalf("failed to send input: %v", err)
 		}

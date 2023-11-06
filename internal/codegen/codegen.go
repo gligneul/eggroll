@@ -27,7 +27,7 @@ func Gen(jsonAbi string, packageName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data.Messages, err = loadMessages(a, data.Structs)
+	data.Schemas, err = loadSchemas(a, data.Structs)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +106,7 @@ func toGoType(t abi.Type, structs map[string]tmplStruct) (string, error) {
 		}
 		return fmt.Sprintf("[%d]", t.Size) + elemType, nil
 	case abi.TupleTy:
-		return structs[structID(t)].Name, nil
+		return structs[structID(t)].Kind, nil
 	case abi.AddressTy:
 		return "common.Address", nil
 	case abi.FixedBytesTy:
@@ -136,13 +136,15 @@ func recAddStructs(structs map[string]tmplStruct, t abi.Type) error {
 	}
 	var err error
 	var struct_ tmplStruct
-	struct_.Name, err = toGoIdentifier(t.TupleRawName)
+	struct_.Kind = t.TupleRawName
+	struct_.GoName, err = toGoIdentifier(t.TupleRawName)
 	if err != nil {
 		return err
 	}
 	for i, name := range t.TupleRawNames {
 		var field tmplField
-		field.Name, err = toGoIdentifier(name)
+		field.Kind = name
+		field.GoName, err = toGoIdentifier(name)
 		if err != nil {
 			return err
 		}
@@ -169,20 +171,21 @@ func loadStructs(a abi.ABI) (map[string]tmplStruct, error) {
 	return structs, nil
 }
 
-func loadMessages(a abi.ABI, structs map[string]tmplStruct) ([]tmplMessage, error) {
-	var messages []tmplMessage
+func loadSchemas(a abi.ABI, structs map[string]tmplStruct) ([]tmplSchema, error) {
+	var schemas []tmplSchema
 	var err error
 	for name, method := range a.Methods {
-		var message tmplMessage
-		message.ID = method.ID
-		message.RawName = name
-		message.Name, err = toGoIdentifier(name)
+		var schema tmplSchema
+		schema.ID = method.ID
+		schema.Kind = name
+		schema.GoName, err = toGoIdentifier(name)
 		if err != nil {
 			return nil, err
 		}
 		for _, input := range method.Inputs {
 			var field tmplField
-			field.Name, err = toGoIdentifier(input.Name)
+			field.Kind = input.Name
+			field.GoName, err = toGoIdentifier(input.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -190,11 +193,11 @@ func loadMessages(a abi.ABI, structs map[string]tmplStruct) ([]tmplMessage, erro
 			if err != nil {
 				return nil, err
 			}
-			message.Fields = append(message.Fields, field)
+			schema.Fields = append(schema.Fields, field)
 		}
-		messages = append(messages, message)
+		schemas = append(schemas, schema)
 	}
-	return messages, nil
+	return schemas, nil
 }
 
 func genCode(data tmplData) (string, error) {

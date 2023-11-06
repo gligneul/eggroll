@@ -98,7 +98,7 @@ func FilterReports[T any](reports []Report, id [4]byte) []T {
 	var values []T
 	for _, r := range reports {
 		if bytes.HasPrefix(r.Payload, id[:]) {
-			v, err := Unpack(r.Payload)
+			v, err := Decode(r.Payload)
 			if err != nil {
 				// This should never happen because the callee
 				// requested for an specific id.
@@ -114,7 +114,7 @@ func FilterReports[T any](reports []Report, id [4]byte) []T {
 func FindReport[T any](reports []Report, id [4]byte) (empty T, found bool) {
 	for _, r := range reports {
 		if bytes.HasPrefix(r.Payload, id[:]) {
-			v, err := Unpack(r.Payload)
+			v, err := Decode(r.Payload)
 			if err != nil {
 				// This should never happen because the callee
 				// requested for an specific id.
