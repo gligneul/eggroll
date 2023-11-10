@@ -15,23 +15,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// Owner of the honeypot that can withdraw all funds.
-var Owner common.Address
-
-func init() {
-	Owner = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+type Contract struct {
+	owner common.Address
 }
-
-type Contract struct{}
 
 func (c *Contract) Deposit(env eggroll.Env) error {
 	switch deposit := env.Deposit().(type) {
 	case *eggwallets.EtherDeposit:
 		env.Log(deposit)
-		if env.Sender() != Owner {
-			env.EtherTransfer(env.Sender(), Owner, deposit.Value)
+		if env.Sender() != c.owner {
+			env.EtherTransfer(env.Sender(), c.owner, deposit.Value)
 		}
-		env.Report(EncodeCurrentBalance(env.EtherBalanceOf(Owner)))
+		env.Report(EncodeCurrentBalance(env.EtherBalanceOf(c.owner)))
 		return nil
 	default:
 		return fmt.Errorf("unsupported deposit: %T", deposit)
@@ -39,18 +34,18 @@ func (c *Contract) Deposit(env eggroll.Env) error {
 }
 
 func (c *Contract) Withdraw(env eggroll.Env, value *big.Int) error {
-	if env.Sender() != Owner {
+	if env.Sender() != c.owner {
 		return fmt.Errorf("ignoring input from %v", env.Sender())
 	}
-	_, err := env.EtherWithdraw(Owner, value)
+	_, err := env.EtherWithdraw(c.owner, value)
 	if err != nil {
 		return err
 	}
 	env.Logf("withdrawn %v\n", value)
-	env.Report(EncodeCurrentBalance(env.EtherBalanceOf(Owner)))
+	env.Report(EncodeCurrentBalance(env.EtherBalanceOf(c.owner)))
 	return nil
 }
 
 func main() {
-	Roll(&Contract{})
+	Roll(&Contract{common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")})
 }
