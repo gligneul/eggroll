@@ -1,8 +1,21 @@
-messages:
-  - deposit:
+advances:
+  - name: deposit
+    doc: |
+      Deposit Ether to the honeypot.
+      This input should be sent through the Ether portal.
 
-  - withdraw:
-    - value: uint256
+  - name: withdraw
+    doc: |
+      Withdraw the given value from honeypot.
+      The contract only process this input if it come from the owner.
+    fields:
+      - name: value
+        type: uint
 
-  - honeypot:
-    - balance: uint256
+reports:
+  - name: currentBalance
+    doc: |
+      Return the current balance of the honeypot.
+    fields:
+      - name: balance
+        type: uint

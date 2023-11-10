@@ -18,18 +18,23 @@ func TestCheckIdentifier(t *testing.T) {
 		{"FB", false},
 		{"FooBar", false},
 		{"FooBar123", false},
+		{"", true},
 		{"_", true},
 		{"_foo", true},
 		{"1foo", true},
 		{"Foo_", true},
+		{"var", true},
 	}
 	for _, testCase := range testCases {
-		err := checkIdentifier(testCase.id)
+		err := checkName(testCase.id)
 		if !testCase.isErr && err != nil {
 			t.Fatalf("unexpected err for %v: %v", testCase.id, err)
 		}
-		if testCase.isErr && err == nil {
-			t.Fatalf("expected err for %v", testCase.id)
+		if testCase.isErr {
+			t.Log(err)
+			if err == nil {
+				t.Fatalf("expected err for %v", testCase.id)
+			}
 		}
 	}
 }
@@ -41,6 +46,7 @@ func TestTokenizeType(t *testing.T) {
 		isArray bool
 		isErr   bool
 	}{
+		// valid ids
 		{"f", "f", false, false},
 		{"foo", "foo", false, false},
 		{"fooBar", "fooBar", false, false},
@@ -49,10 +55,16 @@ func TestTokenizeType(t *testing.T) {
 		{"FB", "FB", false, false},
 		{"FooBar", "FooBar", false, false},
 		{"FooBar123", "FooBar123", false, false},
+
+		// valid arrays
 		{"f[]", "f", true, false},
 		{"fooBar[]", "fooBar", true, false},
 		{"foo123[]", "foo123", true, false},
+
+		// error cases
+		{"[]", "", false, true},
 		{"foo[", "", false, true},
+		{"fo[o]", "", false, true},
 		{"foo]", "", false, true},
 		{"foo_bar", "", false, true},
 		{"_", "", false, true},
@@ -70,8 +82,11 @@ func TestTokenizeType(t *testing.T) {
 					testCase.id, testCase.isArray, testCase.rawType, id, isArray)
 			}
 		}
-		if testCase.isErr && err == nil {
-			t.Fatalf("expected err for %q", testCase.rawType)
+		if testCase.isErr {
+			t.Log(err)
+			if err == nil {
+				t.Fatalf("expected err for %v", testCase.id)
+			}
 		}
 	}
 }

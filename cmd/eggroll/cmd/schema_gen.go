@@ -6,7 +6,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/gligneul/eggroll/internal/codegen"
+	"github.com/gligneul/eggroll/internal/compiler"
 	"github.com/spf13/cobra"
 )
 
@@ -20,15 +20,16 @@ var schemaGenCmd = &cobra.Command{
 	Short: "Generate ABI bindings",
 	Long:  `Generate the Go bindings for the given ABI yaml file.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		abiJson := schemaLoad()
-		code, err := codegen.Gen(abiJson, schemaGenArgs.packageName)
+		input := schemaLoadInputFile()
+		packageName := schemaGenArgs.packageName
+		output, err := compiler.YamlSchemaToGoBinding(input, packageName)
 		cobra.CheckErr(err)
 
 		outputFile, err := os.Create(schemaGenArgs.outputPath)
 		cobra.CheckErr(err)
 		defer outputFile.Close()
 
-		_, err = outputFile.Write([]byte(code))
+		_, err = outputFile.Write(output)
 		cobra.CheckErr(err)
 	},
 }

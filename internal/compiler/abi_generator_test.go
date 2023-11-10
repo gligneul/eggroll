@@ -7,26 +7,80 @@ import (
 	"testing"
 )
 
-func TestGenerateBasicTypes(t *testing.T) {
-	ast := Ast{
-		Messages: []Struct{
-			{
-				Name: "foo",
-				Fields: []Field{
-					{Name: "bool", Type: TypeBool{}},
-					{Name: "int", Type: TypeInt{true, 256}},
-					{Name: "int8", Type: TypeInt{true, 8}},
-					{Name: "int256", Type: TypeInt{true, 256}},
-					{Name: "uint", Type: TypeInt{false, 256}},
-					{Name: "uint8", Type: TypeInt{false, 8}},
-					{Name: "uint256", Type: TypeInt{false, 256}},
-					{Name: "address", Type: TypeAddress{}},
-					{Name: "string", Type: TypeString{}},
-					{Name: "bytes", Type: TypeBytes{}},
-				},
-			},
-		},
+func testGenerateAbi(t *testing.T, input string, expected string) {
+	ast, err := analyze([]byte(input))
+	if err != nil {
+		t.Fatalf("failed to analyze: %v", err)
 	}
+	generated := string(generateAbi(ast))
+	if generated != expected {
+		t.Fatalf("wrong json: %v", generated)
+	}
+}
+
+func TestGenerateAbiForAllMessageSchemas(t *testing.T) {
+	input := `
+reports:
+  - name: reportMessage
+
+advances:
+  - name: advanceMessage
+
+inspects:
+  - name: inspectMessage
+`
+	expected := `[
+  {
+    "name": "reportMessage",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  },
+  {
+    "name": "advanceMessage",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  },
+  {
+    "name": "inspectMessage",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  }
+]`
+	testGenerateAbi(t, input, expected)
+}
+
+func TestGenerateAbiBasicTypes(t *testing.T) {
+	input := `
+reports:
+  - name: foo
+    fields:
+      - name: bool
+        type: bool
+      - name: int
+        type: int
+      - name: int8
+        type: int8
+      - name: int256
+        type: int256
+      - name: uint
+        type: uint
+      - name: uint8
+        type: uint8
+      - name: uint256
+        type: uint256
+      - name: address
+        type: address
+      - name: string
+        type: string
+      - name: bytes
+        type: bytes
+`
 	expected := `[
   {
     "name": "foo",
@@ -97,23 +151,17 @@ func TestGenerateBasicTypes(t *testing.T) {
     "outputs": null
   }
 ]`
-	json := generate(ast)
-	if json != expected {
-		t.Fatalf("wrong json: %v", json)
-	}
+	testGenerateAbi(t, input, expected)
 }
 
-func TestGenerateArrayType(t *testing.T) {
-	ast := Ast{
-		Messages: []Struct{
-			{
-				Name: "foo",
-				Fields: []Field{
-					{Name: "i", Type: TypeArray{Elem: TypeInt{true, 256}}},
-				},
-			},
-		},
-	}
+func TestGenerateAbiArrayType(t *testing.T) {
+	input := `
+reports:
+  - name: foo
+    fields:
+      - name: i
+        type: int[]
+`
 	expected := `[
   {
     "name": "foo",
@@ -130,31 +178,23 @@ func TestGenerateArrayType(t *testing.T) {
     "outputs": null
   }
 ]`
-	json := generate(ast)
-	if json != expected {
-		t.Fatalf("wrong json: %v", json)
-	}
+	testGenerateAbi(t, input, expected)
 }
 
-func TestGenerateStructType(t *testing.T) {
-	ast := Ast{
-		Structs: []Struct{
-			{
-				Name: "foo",
-				Fields: []Field{
-					{Name: "ivalue", Type: TypeInt{true, 256}},
-				},
-			},
-		},
-		Messages: []Struct{
-			{
-				Name: "bar",
-				Fields: []Field{
-					{Name: "foovalue", Type: TypeStructRef{0}},
-				},
-			},
-		},
-	}
+func TestGenerateAbiStructType(t *testing.T) {
+	input := `
+structs:
+  - name: foo
+    fields:
+      - name: ivalue
+        type: int
+
+reports:
+  - name: bar
+    fields:
+      - name: foovalue
+        type: foo
+`
 	expected := `[
   {
     "name": "bar",
@@ -178,8 +218,5 @@ func TestGenerateStructType(t *testing.T) {
     "outputs": null
   }
 ]`
-	json := generate(ast)
-	if json != expected {
-		t.Fatalf("wrong json: %v", json)
-	}
+	testGenerateAbi(t, input, expected)
 }

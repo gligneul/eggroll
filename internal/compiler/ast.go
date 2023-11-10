@@ -3,47 +3,37 @@
 
 package compiler
 
-type Ast struct {
-	// Structs will be compiled to ABI tuples.
-	Structs []Struct
+// Top level struct for the EggRoll schema.
+type astSchema struct {
 
-	// Messages will be compiled to ABI functions.
-	// Messages have the same structure as Structs, so we use the same
-	// underlying type.
-	Messages []Struct
+	// Plain structs that will be compiled into.
+	Structs []messageSchema
+
+	// Schemas that will be used as reports.
+	Reports []messageSchema
+
+	// Schemas that will be used as advance requests.
+	Advances []messageSchema
+
+	// Schemas that will be used as inspect requests.
+	Inspects []messageSchema
 }
 
-type Struct struct {
+// Schema for a message, that can be a plain struct, an input, or an output.
+type messageSchema struct {
 	Name   string
-	Fields []Field
+	Doc    string
+	Fields []fieldSchema
 }
 
-type Field struct {
+// Schema for a field of a message.
+type fieldSchema struct {
 	Name string
-	Type any
-}
+	Doc  string
 
-type TypeName struct {
-	Name string
-}
+	// Raw type from the input schema; it might not be a valid type.
+	Type string
 
-type TypeBool struct{}
-
-type TypeInt struct {
-	Signed bool
-	Bits   int
-}
-
-type TypeAddress struct{}
-
-type TypeBytes struct{}
-
-type TypeString struct{}
-
-type TypeArray struct {
-	Elem any
-}
-
-type TypeStructRef struct {
-	Index int
+	// Once the type is validated, this field is set to a type* struct.
+	type_ any
 }

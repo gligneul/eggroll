@@ -55,17 +55,17 @@ CMD ["/var/opt/cartesi-dapp/dapp"]
 # Example images
 #
 
+FROM build-stage as echo-build-stage
+COPY examples/echo examples/echo
+RUN go build ./examples/echo/
+FROM --platform=linux/riscv64 runtime as echo
+COPY --from=echo-build-stage /opt/build/echo dapp
+
 FROM build-stage as honeypot-build-stage
 COPY examples/honeypot examples/honeypot
 RUN go build ./examples/honeypot/
 FROM --platform=linux/riscv64 runtime as honeypot
 COPY --from=honeypot-build-stage /opt/build/honeypot dapp
-
-FROM build-stage as minimal-build-stage
-COPY examples/minimal examples/minimal
-RUN go build ./examples/minimal/
-FROM --platform=linux/riscv64 runtime as minimal
-COPY --from=minimal-build-stage /opt/build/minimal dapp
 
 FROM build-stage as textbox-build-stage
 COPY examples/textbox examples/textbox

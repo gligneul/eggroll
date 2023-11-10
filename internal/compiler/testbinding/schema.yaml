@@ -1,0 +1,79 @@
+structs:
+  - name: simpleStruct
+    doc: Struct wit a single field
+    fields:
+      - name: value
+        type: int64
+
+  - name: nestedStruct
+    doc: Struct with another struct
+    fields:
+      - name: value
+        type: simpleStruct
+
+advances:
+  - name: emptyAdvance
+    doc: |
+      Empty advance message
+      With multi-line string documentation
+
+  - name: simpleAdvance
+    doc: Advance with a single field
+    fields:
+      - name: value
+        doc: Integer value of 64 bits
+        type: int64
+
+  - name: multiFieldAdvance
+    doc: Advance with multiple fields
+    fields:
+      - name: intValue
+        type: int64
+      - name: boolValue
+        type: bool
+      - name: stringValue
+        type: string
+
+  - name: basicTypesAdvance
+    doc: Advance with basic types
+    fields: 
+      - name: bool
+        type: bool
+      - name: int
+        type: int
+      - name: int8
+        type: int8
+      - name: int256
+        type: int256
+      - name: uint
+        type: uint
+      - name: uint8
+        type: uint8
+      - name: uint256
+        type: uint256
+      - name: address
+        type: address
+      - name: string
+        type: string
+      - name: bytes
+        type: bytes
+
+  - name: structAdvance
+    doc: Advance with struct value
+    fields:
+      - name: value
+        type: nestedStruct
+
+  - name: ArrayAdvance
+    doc: Advance with array value
+    fields:
+      - name: value
+        type: simpleStruct[]
+
+reports:
+  - name: reportMessage
+    doc: Empty report message
+
+inspects:
+  - name: inspectMessage
+    doc: Empty inspect message

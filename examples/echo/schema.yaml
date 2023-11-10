@@ -1,0 +1,17 @@
+advances:
+  - name: advanceEcho
+    fields:
+      - name: value
+        type: string
+
+inspects:
+  - name: inspectEcho
+    fields:
+      - name: value
+        type: string
+
+reports:
+  - name: echoResponse
+    fields:
+      - name: value
+        type: string

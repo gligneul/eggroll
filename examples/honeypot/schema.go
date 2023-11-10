@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gligneul/eggroll/pkg/eggroll"
 	"github.com/gligneul/eggroll/pkg/eggtypes"
 )
 
@@ -18,40 +19,105 @@ var (
 	_ = eggtypes.MustAddSchema
 )
 
+// Messages encoded as JSON ABI.
+const _JSON_ABI = `[
+  {
+    "name": "currentBalance",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256",
+        "components": null
+      }
+    ],
+    "outputs": null
+  },
+  {
+    "name": "deposit",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  },
+  {
+    "name": "withdraw",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256",
+        "components": null
+      }
+    ],
+    "outputs": null
+  }
+]
+`
+
+// Solidity ABI.
+var _abi abi.ABI
+
 //
-// Types
+// Struct Types
 //
 
-// Schema with selector d0e30db0
+// Return the current balance of the honeypot.
+type CurrentBalance struct {
+	Balance *big.Int
+}
+
+// Deposit Ether to the honeypot.
+// This input should be sent through the Ether portal.
 type Deposit struct {
 }
 
-// Schema with selector 2e1a7d4d
+// Withdraw the given value from honeypot.
+// The contract only process this input if it come from the owner.
 type Withdraw struct {
 	Value *big.Int
 }
 
-// Schema with selector a7353783
-type Honeypot struct {
-	Balance *big.Int
+//
+// ID for each schema
+//
+
+// 4-byte function selector of currentBalance
+var CurrentBalanceID eggtypes.ID
+
+// 4-byte function selector of deposit
+var DepositID eggtypes.ID
+
+// 4-byte function selector of withdraw
+var WithdrawID eggtypes.ID
+
+//
+// Encode functions for each message schema
+//
+
+// Encode currentBalance into binary data.
+func EncodeCurrentBalance(
+	Balance *big.Int,
+) []byte {
+	values := make([]any, 1)
+	values[0] = Balance
+	data, err := _abi.Methods["currentBalance"].Inputs.PackValues(values)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode currentBalance: %v", err))
+	}
+	return append(CurrentBalanceID[:], data...)
 }
 
-//
-// IDs
-//
-
-// deposit ID
-var DepositID = [4]byte{0xd0, 0xe3, 0xd, 0xb0}
-
-// withdraw ID
-var WithdrawID = [4]byte{0x2e, 0x1a, 0x7d, 0x4d}
-
-// honeypot ID
-var HoneypotID = [4]byte{0xa7, 0x35, 0x37, 0x83}
-
-//
-// Encode
-//
+// Encode currentBalance into binary data.
+func (v CurrentBalance) Encode() []byte {
+	return EncodeCurrentBalance(
+		v.Balance,
+	)
+}
 
 // Encode deposit into binary data.
 func EncodeDeposit() []byte {
@@ -88,29 +154,22 @@ func (v Withdraw) Encode() []byte {
 	)
 }
 
-// Encode honeypot into binary data.
-func EncodeHoneypot(
-	Balance *big.Int,
-) []byte {
-	values := make([]any, 1)
-	values[0] = Balance
-	data, err := _abi.Methods["honeypot"].Inputs.PackValues(values)
-	if err != nil {
-		panic(fmt.Sprintf("failed to encode honeypot: %v", err))
+//
+// Decode functions for each message schema
+//
+
+func _decode_CurrentBalance(values []any) (any, error) {
+	if len(values) != 1 {
+		return nil, fmt.Errorf("wrong number of values")
 	}
-	return append(HoneypotID[:], data...)
+	var ok bool
+	var v CurrentBalance
+	v.Balance, ok = values[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("failed to decode currentBalance.balance")
+	}
+	return v, nil
 }
-
-// Encode honeypot into binary data.
-func (v Honeypot) Encode() []byte {
-	return EncodeHoneypot(
-		v.Balance,
-	)
-}
-
-//
-// Decode
-//
 
 func _decode_Deposit(values []any) (any, error) {
 	if len(values) != 0 {
@@ -133,63 +192,9 @@ func _decode_Withdraw(values []any) (any, error) {
 	return v, nil
 }
 
-func _decode_Honeypot(values []any) (any, error) {
-	if len(values) != 1 {
-		return nil, fmt.Errorf("wrong number of values")
-	}
-	var ok bool
-	var v Honeypot
-	v.Balance, ok = values[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("failed to decode honeypot.balance")
-	}
-	return v, nil
-}
-
 //
-// Init
+// Init function
 //
-
-const _JSON_ABI = `[
-  {
-    "name": "deposit",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": null,
-    "outputs": null
-  },
-  {
-    "name": "withdraw",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint256",
-        "internalType": "uint256",
-        "components": null
-      }
-    ],
-    "outputs": null
-  },
-  {
-    "name": "honeypot",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": [
-      {
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256",
-        "components": null
-      }
-    ],
-    "outputs": null
-  }
-]
-`
-
-var _abi abi.ABI
 
 func init() {
 	var err error
@@ -198,22 +203,82 @@ func init() {
 		// This should not happen
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
+	CurrentBalanceID = eggtypes.ID(_abi.Methods["currentBalance"].ID)
+	eggtypes.MustAddSchema(eggtypes.MessageSchema{
+		ID:        CurrentBalanceID,
+		Kind:      "currentBalance",
+		Arguments: _abi.Methods["currentBalance"].Inputs,
+		Decoder:   _decode_CurrentBalance,
+	})
+	DepositID = eggtypes.ID(_abi.Methods["deposit"].ID)
 	eggtypes.MustAddSchema(eggtypes.MessageSchema{
 		ID:        DepositID,
 		Kind:      "deposit",
 		Arguments: _abi.Methods["deposit"].Inputs,
 		Decoder:   _decode_Deposit,
 	})
+	WithdrawID = eggtypes.ID(_abi.Methods["withdraw"].ID)
 	eggtypes.MustAddSchema(eggtypes.MessageSchema{
 		ID:        WithdrawID,
 		Kind:      "withdraw",
 		Arguments: _abi.Methods["withdraw"].Inputs,
 		Decoder:   _decode_Withdraw,
 	})
-	eggtypes.MustAddSchema(eggtypes.MessageSchema{
-		ID:        HoneypotID,
-		Kind:      "honeypot",
-		Arguments: _abi.Methods["honeypot"].Inputs,
-		Decoder:   _decode_Honeypot,
-	})
+}
+
+//
+// Middleware
+//
+
+// High-level contract
+type iContract interface {
+
+	// Deposit Ether to the honeypot.
+	// This input should be sent through the Ether portal.
+	Deposit(
+		eggroll.Env,
+	) error
+
+	// Withdraw the given value from honeypot.
+	// The contract only process this input if it come from the owner.
+	Withdraw(
+		eggroll.Env,
+		*big.Int,
+	) error
+}
+
+// Middleware that implements the EggRoll Middleware interface.
+// The middleware requires a high-level contract to work.
+type Middleware struct {
+	contract iContract
+}
+
+func (m Middleware) Advance(env eggroll.Env, input []byte) error {
+	unpacked, err := eggtypes.Decode(input)
+	if err != nil {
+		return err
+	}
+	env.Logf("middleware: received %#v", unpacked)
+	switch input := unpacked.(type) {
+	case Deposit:
+		return m.contract.Deposit(
+			env,
+		)
+	case Withdraw:
+		return m.contract.Withdraw(
+			env,
+			input.Value,
+		)
+	default:
+		return fmt.Errorf("middleware: input isn't an advance")
+	}
+}
+
+func (m Middleware) Inspect(env eggroll.EnvReader, input []byte) error {
+	return fmt.Errorf("inspect not supported")
+}
+
+// Call eggroll.Roll for the contract using the middleware wrapper.
+func Roll(contract iContract) {
+	eggroll.Roll(Middleware{contract})
 }

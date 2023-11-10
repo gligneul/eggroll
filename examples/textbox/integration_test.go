@@ -64,7 +64,7 @@ func sendInputsAndVerifyState(
 		t.Fatalf("failed to wait for input: %v", err)
 	}
 
-	textBox, found := eggtypes.FindReport[TextBox](result.Reports, TextBoxID)
+	textBox, found := eggtypes.FindReport[CurrentState](result.Reports, CurrentStateID)
 	if !found {
 		t.Fatalf("textbox value not found")
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gligneul/eggroll/pkg/eggroll"
 	"github.com/gligneul/eggroll/pkg/eggtypes"
 )
 
@@ -18,57 +19,97 @@ var (
 	_ = eggtypes.MustAddSchema
 )
 
+// Messages encoded as JSON ABI.
+const _JSON_ABI = `[
+  {
+    "name": "currentState",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "string",
+        "internalType": "string",
+        "components": null
+      }
+    ],
+    "outputs": null
+  },
+  {
+    "name": "append",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "string",
+        "internalType": "string",
+        "components": null
+      }
+    ],
+    "outputs": null
+  },
+  {
+    "name": "clear",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": null,
+    "outputs": null
+  }
+]
+`
+
+// Solidity ABI.
+var _abi abi.ABI
+
 //
-// Types
+// Struct Types
 //
 
-// Schema with selector 09df59d0
-type TextBox struct {
+type CurrentState struct {
 	Value string
 }
 
-// Schema with selector 86cdbae9
 type Append struct {
 	Value string
 }
 
-// Schema with selector 52efea6e
 type Clear struct {
 }
 
 //
-// IDs
+// ID for each schema
 //
 
-// textBox ID
-var TextBoxID = [4]byte{0x9, 0xdf, 0x59, 0xd0}
+// 4-byte function selector of currentState
+var CurrentStateID eggtypes.ID
 
-// append ID
-var AppendID = [4]byte{0x86, 0xcd, 0xba, 0xe9}
+// 4-byte function selector of append
+var AppendID eggtypes.ID
 
-// clear ID
-var ClearID = [4]byte{0x52, 0xef, 0xea, 0x6e}
+// 4-byte function selector of clear
+var ClearID eggtypes.ID
 
 //
-// Encode
+// Encode functions for each message schema
 //
 
-// Encode textBox into binary data.
-func EncodeTextBox(
+// Encode currentState into binary data.
+func EncodeCurrentState(
 	Value string,
 ) []byte {
 	values := make([]any, 1)
 	values[0] = Value
-	data, err := _abi.Methods["textBox"].Inputs.PackValues(values)
+	data, err := _abi.Methods["currentState"].Inputs.PackValues(values)
 	if err != nil {
-		panic(fmt.Sprintf("failed to encode textBox: %v", err))
+		panic(fmt.Sprintf("failed to encode currentState: %v", err))
 	}
-	return append(TextBoxID[:], data...)
+	return append(CurrentStateID[:], data...)
 }
 
-// Encode textBox into binary data.
-func (v TextBox) Encode() []byte {
-	return EncodeTextBox(
+// Encode currentState into binary data.
+func (v CurrentState) Encode() []byte {
+	return EncodeCurrentState(
 		v.Value,
 	)
 }
@@ -109,18 +150,18 @@ func (v Clear) Encode() []byte {
 }
 
 //
-// Decode
+// Decode functions for each message schema
 //
 
-func _decode_TextBox(values []any) (any, error) {
+func _decode_CurrentState(values []any) (any, error) {
 	if len(values) != 1 {
 		return nil, fmt.Errorf("wrong number of values")
 	}
 	var ok bool
-	var v TextBox
+	var v CurrentState
 	v.Value, ok = values[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("failed to decode textBox.value")
+		return nil, fmt.Errorf("failed to decode currentState.value")
 	}
 	return v, nil
 }
@@ -147,49 +188,8 @@ func _decode_Clear(values []any) (any, error) {
 }
 
 //
-// Init
+// Init function
 //
-
-const _JSON_ABI = `[
-  {
-    "name": "append",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "string",
-        "internalType": "string",
-        "components": null
-      }
-    ],
-    "outputs": null
-  },
-  {
-    "name": "clear",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": null,
-    "outputs": null
-  },
-  {
-    "name": "textBox",
-    "type": "function",
-    "stateMutability": "nonpayable",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "string",
-        "internalType": "string",
-        "components": null
-      }
-    ],
-    "outputs": null
-  }
-]
-`
-
-var _abi abi.ABI
 
 func init() {
 	var err error
@@ -198,22 +198,77 @@ func init() {
 		// This should not happen
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
+	CurrentStateID = eggtypes.ID(_abi.Methods["currentState"].ID)
 	eggtypes.MustAddSchema(eggtypes.MessageSchema{
-		ID:        TextBoxID,
-		Kind:      "textBox",
-		Arguments: _abi.Methods["textBox"].Inputs,
-		Decoder:   _decode_TextBox,
+		ID:        CurrentStateID,
+		Kind:      "currentState",
+		Arguments: _abi.Methods["currentState"].Inputs,
+		Decoder:   _decode_CurrentState,
 	})
+	AppendID = eggtypes.ID(_abi.Methods["append"].ID)
 	eggtypes.MustAddSchema(eggtypes.MessageSchema{
 		ID:        AppendID,
 		Kind:      "append",
 		Arguments: _abi.Methods["append"].Inputs,
 		Decoder:   _decode_Append,
 	})
+	ClearID = eggtypes.ID(_abi.Methods["clear"].ID)
 	eggtypes.MustAddSchema(eggtypes.MessageSchema{
 		ID:        ClearID,
 		Kind:      "clear",
 		Arguments: _abi.Methods["clear"].Inputs,
 		Decoder:   _decode_Clear,
 	})
+}
+
+//
+// Middleware
+//
+
+// High-level contract
+type iContract interface {
+	Append(
+		eggroll.Env,
+		string,
+	) error
+
+	Clear(
+		eggroll.Env,
+	) error
+}
+
+// Middleware that implements the EggRoll Middleware interface.
+// The middleware requires a high-level contract to work.
+type Middleware struct {
+	contract iContract
+}
+
+func (m Middleware) Advance(env eggroll.Env, input []byte) error {
+	unpacked, err := eggtypes.Decode(input)
+	if err != nil {
+		return err
+	}
+	env.Logf("middleware: received %#v", unpacked)
+	switch input := unpacked.(type) {
+	case Append:
+		return m.contract.Append(
+			env,
+			input.Value,
+		)
+	case Clear:
+		return m.contract.Clear(
+			env,
+		)
+	default:
+		return fmt.Errorf("middleware: input isn't an advance")
+	}
+}
+
+func (m Middleware) Inspect(env eggroll.EnvReader, input []byte) error {
+	return fmt.Errorf("inspect not supported")
+}
+
+// Call eggroll.Roll for the contract using the middleware wrapper.
+func Roll(contract iContract) {
+	eggroll.Roll(Middleware{contract})
 }

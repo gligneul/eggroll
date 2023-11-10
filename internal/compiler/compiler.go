@@ -1,26 +1,23 @@
 // Copyright (c) Gabriel de Quadros Ligneul
 // SPDX-License-Identifier: MIT (see LICENSE)
 
-// Package responsible for compiling EggRoll ABI to Solidity JSON ABI.
+// Package responsible for compiling EggRoll schema definition to the Go binding.
 package compiler
 
-import (
-	"fmt"
-	"io"
-)
+// Compile the input into Solidity JSON ABI.
+func YamlSchemaToJsonAbi(input []byte) ([]byte, error) {
+	ast, err := analyze(input)
+	if err != nil {
+		return nil, err
+	}
+	return generateAbi(ast), nil
+}
 
-func Compile(input io.Reader) (string, error) {
-	inputBytes, err := io.ReadAll(input)
+// Compile the input into the EggRoll Go binding.
+func YamlSchemaToGoBinding(input []byte, packageName string) ([]byte, error) {
+	ast, err := analyze(input)
 	if err != nil {
-		return "", fmt.Errorf("failed to read input: %v", err)
+		return nil, err
 	}
-	ast, err := parse(inputBytes)
-	if err != nil {
-		return "", err
-	}
-	ast, err = analyze(ast)
-	if err != nil {
-		return "", err
-	}
-	return generate(ast), nil
+	return generateGo(ast, packageName), nil
 }

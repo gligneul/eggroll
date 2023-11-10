@@ -7,9 +7,9 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/gligneul/eggroll/pkg/eggroll"
-	"github.com/gligneul/eggroll/pkg/eggtypes"
 	"github.com/gligneul/eggroll/pkg/eggwallets"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,54 +24,33 @@ func init() {
 
 type Contract struct{}
 
-func (c *Contract) Advance(env eggroll.Env, input []byte) error {
-	unpacked, err := eggtypes.Decode(input)
+func (c *Contract) Deposit(env eggroll.Env) error {
+	switch deposit := env.Deposit().(type) {
+	case *eggwallets.EtherDeposit:
+		env.Log(deposit)
+		if env.Sender() != Owner {
+			env.EtherTransfer(env.Sender(), Owner, deposit.Value)
+		}
+		env.Report(EncodeCurrentBalance(env.EtherBalanceOf(Owner)))
+		return nil
+	default:
+		return fmt.Errorf("unsupported deposit: %T", deposit)
+	}
+}
+
+func (c *Contract) Withdraw(env eggroll.Env, value *big.Int) error {
+	if env.Sender() != Owner {
+		return fmt.Errorf("ignoring input from %v", env.Sender())
+	}
+	_, err := env.EtherWithdraw(Owner, value)
 	if err != nil {
 		return err
 	}
-	switch input := unpacked.(type) {
-	case Deposit:
-		switch deposit := env.Deposit().(type) {
-		case *eggwallets.EtherDeposit:
-			env.Log(deposit)
-			if env.Sender() != Owner {
-				// Transfer Ether deposits to Owner
-				env.EtherTransfer(env.Sender(), Owner, deposit.Value)
-			}
-			reportHoneypot(env)
-			return nil
-
-		default:
-			return fmt.Errorf("unsupported deposit: %T", deposit)
-		}
-
-	case Withdraw:
-		if env.Sender() != Owner {
-			// Ignore inputs that are not from Owner
-			return fmt.Errorf("ignoring input from %v", env.Sender())
-		}
-		_, err := env.EtherWithdraw(Owner, input.Value)
-		if err != nil {
-			return err
-		}
-		env.Logf("withdraw %v\n", input.Value)
-		reportHoneypot(env)
-		return nil
-
-	default:
-		return fmt.Errorf("unknown input: %T", input)
-	}
-}
-
-func (c *Contract) Inspect(env eggroll.EnvReader, input []byte) error {
-	reportHoneypot(env)
+	env.Logf("withdrawn %v\n", value)
+	env.Report(EncodeCurrentBalance(env.EtherBalanceOf(Owner)))
 	return nil
 }
 
-func reportHoneypot(env eggroll.EnvReader) {
-	env.Report(EncodeHoneypot(env.EtherBalanceOf(Owner)))
-}
-
 func main() {
-	eggroll.Roll(&Contract{})
+	Roll(&Contract{})
 }

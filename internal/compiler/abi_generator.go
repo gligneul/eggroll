@@ -8,13 +8,6 @@ import (
 	"fmt"
 )
 
-type jsonAbiArg struct {
-	Name         string       `json:"name"`
-	Type         string       `json:"type"`
-	InternalType string       `json:"internalType"`
-	Components   []jsonAbiArg `json:"components"`
-}
-
 type jsonAbiMethod struct {
 	Name            string       `json:"name"`
 	Type            string       `json:"type"`
@@ -23,35 +16,56 @@ type jsonAbiMethod struct {
 	Outputs         []jsonAbiArg `json:"outputs"`
 }
 
-func generate(ast Ast) string {
-	var methods []jsonAbiMethod
-	for _, message := range ast.Messages {
+type jsonAbiArg struct {
+	Name         string       `json:"name"`
+	Type         string       `json:"type"`
+	InternalType string       `json:"internalType"`
+	Components   []jsonAbiArg `json:"components"`
+}
+
+// Generate the JSON ABI for the AST.
+// This function converts struct to tuples and message schemas to solidity functions.
+func generateAbi(ast astSchema) []byte {
+	methods := generateAbiMethods(nil, ast.Reports, ast.Structs)
+	methods = generateAbiMethods(methods, ast.Advances, ast.Structs)
+	methods = generateAbiMethods(methods, ast.Inspects, ast.Structs)
+	result, err := json.MarshalIndent(methods, "", "  ")
+	if err != nil {
+		panic(fmt.Sprintf("json marshal error: %v", err))
+	}
+	return result
+}
+
+// Generate the methods and append them to the slice
+func generateAbiMethods(
+	methods []jsonAbiMethod,
+	messages []messageSchema,
+	structs []messageSchema,
+) []jsonAbiMethod {
+	for _, message := range messages {
 		var method jsonAbiMethod
 		method.Name = message.Name
 		method.Type = "function"
 		method.StateMutability = "nonpayable"
 		for _, field := range message.Fields {
-			arg := generateArg(ast, field.Name, field.Type)
+			arg := generateAbiArg(field.Name, field.type_, structs)
 			method.Inputs = append(method.Inputs, arg)
 		}
 		methods = append(methods, method)
 	}
-	result, err := json.MarshalIndent(methods, "", "  ")
-	if err != nil {
-		panic(fmt.Sprintf("json marshal error: %v", err))
-	}
-	return string(result)
+	return methods
 }
 
-func generateArg(ast Ast, name string, type_ any) jsonAbiArg {
+// Recursively generate the ABI argument given the type.
+func generateAbiArg(name string, type_ any, structs []messageSchema) jsonAbiArg {
 	switch type_ := type_.(type) {
-	case TypeBool:
+	case typeBool:
 		return jsonAbiArg{
 			Name:         name,
 			Type:         "bool",
 			InternalType: "bool",
 		}
-	case TypeInt:
+	case typeInt:
 		prefix := ""
 		if !type_.Signed {
 			prefix = "u"
@@ -62,34 +76,34 @@ func generateArg(ast Ast, name string, type_ any) jsonAbiArg {
 			Type:         typeName,
 			InternalType: typeName,
 		}
-	case TypeAddress:
+	case typeAddress:
 		return jsonAbiArg{
 			Name:         name,
 			Type:         "address",
 			InternalType: "address",
 		}
-	case TypeBytes:
+	case typeBytes:
 		return jsonAbiArg{
 			Name:         name,
 			Type:         "bytes",
 			InternalType: "bytes",
 		}
-	case TypeString:
+	case typeString:
 		return jsonAbiArg{
 			Name:         name,
 			Type:         "string",
 			InternalType: "string",
 		}
-	case TypeArray:
-		elemType := generateArg(ast, name, type_.Elem)
+	case typeArray:
+		elemType := generateAbiArg(name, type_.Elem, structs)
 		elemType.Type += "[]"
 		elemType.InternalType += "[]"
 		return elemType
-	case TypeStructRef:
-		struct_ := ast.Structs[type_.Index]
+	case typeStructRef:
+		struct_ := structs[type_.Index]
 		var components []jsonAbiArg
 		for _, field := range struct_.Fields {
-			arg := generateArg(ast, field.Name, field.Type)
+			arg := generateAbiArg(field.Name, field.type_, structs)
 			components = append(components, arg)
 		}
 		return jsonAbiArg{

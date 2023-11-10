@@ -59,7 +59,7 @@ func TestHoneypot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to wait for result: %v", err)
 	}
-	honeypot, found := eggtypes.FindReport[Honeypot](result.Reports, HoneypotID)
+	honeypot, found := eggtypes.FindReport[CurrentBalance](result.Reports, CurrentBalanceID)
 	if !found {
 		t.Fatalf("honeypot value not found")
 	}

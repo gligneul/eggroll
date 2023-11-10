@@ -4,8 +4,9 @@
 package cmd
 
 import (
+	"bytes"
+	"io"
 	"os"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/gligneul/eggroll/internal/compiler"
@@ -22,16 +23,25 @@ var schemaCmd = &cobra.Command{
 	Short: "Commands related to schema encoding and decoding",
 }
 
-// Load the schema into eggtypes and return the JSON ABI.
-func schemaLoad() string {
+// Load the input file.
+func schemaLoadInputFile() []byte {
 	inputFile, err := os.Open(schemaArgs.yamlPath)
 	cobra.CheckErr(err)
 	defer inputFile.Close()
 
-	jsonAbi, err := compiler.Compile(inputFile)
+	input, err := io.ReadAll(inputFile)
 	cobra.CheckErr(err)
 
-	a, err := abi.JSON(strings.NewReader(jsonAbi))
+	return input
+}
+
+// Load the schema into eggtypes and return the JSON ABI.
+func schemaLoad() string {
+	input := schemaLoadInputFile()
+	jsonAbi, err := compiler.YamlSchemaToJsonAbi(input)
+	cobra.CheckErr(err)
+
+	a, err := abi.JSON(bytes.NewReader(jsonAbi))
 	cobra.CheckErr(err)
 
 	for _, method := range a.Methods {
@@ -43,7 +53,7 @@ func schemaLoad() string {
 		cobra.CheckErr(err)
 	}
 
-	return jsonAbi
+	return string(jsonAbi)
 }
 
 func init() {

@@ -100,12 +100,12 @@ type Env interface {
 	ERC20Withdraw(token common.Address, address common.Address, value *big.Int) (int, error)
 }
 
-// The Contract is the on-chain part of a rollups DApp.
+// The MiddlewareContract is the on-chain part of a rollups DApp.
 // EggRoll uses the contract's codecs to encode the input and return values.
 // For the advance and inspect methods, if the return value is []byte, return
 // the raw bytes.
 // If the call returns an error, EggRoll rejects the input.
-type Contract interface {
+type MiddlewareContract interface {
 
 	// Advance the contract state.
 	Advance(env Env, input []byte) error
@@ -114,17 +114,9 @@ type Contract interface {
 	Inspect(env EnvReader, input []byte) error
 }
 
-// DefaultContract provides a default implementation for optional contract methods.
-type DefaultContract struct{}
-
-// Reject inspect request.
-func (_ DefaultContract) Inspect(env EnvReader, input []byte) error {
-	return fmt.Errorf("inspect not supported")
-}
-
 // Start the Cartesi rollups for the contract.
 // This function doesn't return and exits if there is an error.
-func Roll(contract Contract) {
+func Roll(contract MiddlewareContract) {
 	rollupsAPI := rollups.NewRollupsHTTP()
 	env := newEnv(rollupsAPI)
 	status := rollups.FinishStatusAccept
@@ -156,7 +148,7 @@ func Roll(contract Contract) {
 
 func handleAdvance(
 	env *env,
-	contract Contract,
+	contract MiddlewareContract,
 	input *rollups.AdvanceInput,
 ) error {
 	var deposit eggwallets.Deposit
@@ -194,7 +186,7 @@ func handleDAppAddressRelay(env *env, payload []byte) error {
 
 func handleInspect(
 	env *env,
-	contract Contract,
+	contract MiddlewareContract,
 	input *rollups.InspectInput,
 ) error {
 	env.setInputData(nil, nil)

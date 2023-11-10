@@ -10,6 +10,7 @@ import (
 
 	"github.com/gligneul/eggroll/pkg/eggroll"
 	"github.com/gligneul/eggroll/pkg/eggtest"
+	"github.com/gligneul/eggroll/pkg/eggtypes"
 )
 
 const testTimeout = 300 * time.Second
@@ -18,7 +19,7 @@ func TestTemplate(t *testing.T) {
 	opts := eggtest.NewIntegrationTesterOpts()
 	opts.LoadFromEnv()
 	opts.Context = "../.."
-	opts.BuildTarget = "minimal"
+	opts.BuildTarget = "echo"
 
 	tester := eggtest.NewIntegrationTester(t, opts)
 	defer tester.Close()
@@ -32,34 +33,32 @@ func TestTemplate(t *testing.T) {
 	}
 
 	// Test advance
-	inputIndex, err := client.Eth.SendInput(ctx, signer, []byte("eggroll"))
+	inputIndex, err := client.Eth.SendInput(ctx, signer, EncodeAdvanceEcho("eggroll"))
 	if err != nil {
 		t.Fatalf("failed to send input: %v", err)
 	}
-	result, err := client.WaitFor(ctx, inputIndex)
+	advanceResult, err := client.WaitFor(ctx, inputIndex)
 	if err != nil {
 		t.Fatalf("failed to wait for input: %v", err)
 	}
-	logs := result.Logs()
-	if len(logs) != 1 || logs[0].Message != "received advance: eggroll" {
-		t.Fatalf("wrong logs: %#v", logs)
+	report, found := eggtypes.FindReport[EchoResponse](advanceResult.Reports, EchoResponseID)
+	if !found {
+		t.Fatalf("honeypot value not found")
 	}
-	report := string(result.Reports[1].Payload)
-	if report != "eggroll" {
+	if report.Value != "eggroll" {
 		t.Fatalf("wrong report: %v", report)
 	}
 
 	// Test inspect
-	inspectResult, err := client.Inspect(ctx, []byte("rollegg"))
+	inspectResult, err := client.Inspect(ctx, EncodeInspectEcho("rollegg"))
 	if err != nil {
 		t.Fatalf("failed to inspect: %v", err)
 	}
-	logs = inspectResult.Logs()
-	if len(logs) != 1 || logs[0].Message != "received inspect: rollegg" {
-		t.Fatalf("wrong logs: %#v", logs)
+	report, found = eggtypes.FindReport[EchoResponse](inspectResult.Reports, EchoResponseID)
+	if !found {
+		t.Fatalf("honeypot value not found")
 	}
-	report = string(inspectResult.Reports[1].Payload)
-	if report != "rollegg" {
+	if report.Value != "rollegg" {
 		t.Fatalf("wrong report: %v", report)
 	}
 }

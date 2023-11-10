@@ -10,18 +10,15 @@ import (
 )
 
 type Contract struct {
-	state string
 }
 
-func (c *Contract) Clear(env eggroll.Env) error {
-	c.state = ""
-	env.Report(EncodeCurrentState(c.state))
+func (c *Contract) AdvanceEcho(env eggroll.Env, value string) error {
+	env.Report(EncodeEchoResponse(value))
 	return nil
 }
 
-func (c *Contract) Append(env eggroll.Env, value string) error {
-	c.state += value
-	env.Report(EncodeCurrentState(c.state))
+func (c *Contract) InspectEcho(env eggroll.EnvReader, value string) error {
+	env.Report(EncodeEchoResponse(value))
 	return nil
 }
 

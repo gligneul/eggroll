@@ -5,92 +5,111 @@ package compiler
 
 import "fmt"
 
-var basicTypes = map[string]any{
-	"bool":    TypeBool{},
-	"int":     TypeInt{true, 256},
-	"uint":    TypeInt{false, 256},
-	"address": TypeAddress{},
-	"bytes":   TypeBytes{},
-	"string":  TypeString{},
-}
+// Perform the semantic analysis of the AST.
+// This function also updates the struct references in the types.
+func analyze(input []byte) (astSchema, error) {
+	ast, err := parse(input)
+	if err != nil {
+		return ast, err
+	}
 
-func init() {
-	for i := 8; i <= 256; i += 8 {
-		basicTypes[fmt.Sprintf("int%v", i)] = TypeInt{true, i}
-		basicTypes[fmt.Sprintf("uint%v", i)] = TypeInt{false, i}
+	structToIndex := map[string]int{}
+	if err := analyzeStructs(ast.Structs, structToIndex); err != nil {
+		return ast, fmt.Errorf("struct %v", err)
 	}
-}
 
-func analyze(ast Ast) (Ast, error) {
-	structs := map[string]int{}
-	for i, struct_ := range ast.Structs {
-		_, ok := structs[struct_.Name]
-		if ok {
-			return Ast{}, fmt.Errorf("duplicate struct: %q", struct_.Name)
-		}
-		if len(struct_.Fields) == 0 {
-			return Ast{}, fmt.Errorf("struct %v: must have fields", struct_.Name)
-		}
-		err := analyzeFields(structs, struct_.Fields)
-		if err != nil {
-			return Ast{}, fmt.Errorf("struct %v: %v", struct_.Name, err)
-		}
-		structs[struct_.Name] = i
+	// Create a set to avoid naming conflicts between messages
+	messageSet := map[string]bool{}
+	for name := range structToIndex {
+		messageSet[name] = true
 	}
-	messages := map[string]bool{}
-	if len(ast.Messages) == 0 {
-		return Ast{}, fmt.Errorf("no messages")
+
+	if err := analyzeMessages(ast.Reports, messageSet, structToIndex); err != nil {
+		return ast, fmt.Errorf("report %v", err)
 	}
-	for _, message := range ast.Messages {
-		_, ok := structs[message.Name]
-		if ok {
-			return Ast{}, fmt.Errorf("message with struct name: %q", message.Name)
-		}
-		ok = messages[message.Name]
-		if ok {
-			return Ast{}, fmt.Errorf("duplicate message: %q", message.Name)
-		}
-		err := analyzeFields(structs, message.Fields)
-		if err != nil {
-			return Ast{}, fmt.Errorf("message %v: %v", message.Name, err)
-		}
-		messages[message.Name] = true
+	if err := analyzeMessages(ast.Advances, messageSet, structToIndex); err != nil {
+		return ast, fmt.Errorf("advance %v", err)
+	}
+	if err := analyzeMessages(ast.Inspects, messageSet, structToIndex); err != nil {
+		return ast, fmt.Errorf("inspect %v", err)
 	}
 	return ast, nil
 }
 
-func analyzeFields(structs map[string]int, fields []Field) error {
-	for i, field := range fields {
-		type_, err := analyzeType(structs, field.Type)
-		if err != nil {
-			return fmt.Errorf("field %v: %v", field.Name, err)
+// Check for duplicates and analyze fields.
+// Structs are a special kind of schema because they can be referenced as types.
+// Also, structs must have at least one field.
+func analyzeStructs(structs []messageSchema, structToIndex map[string]int) error {
+	for i, struct_ := range structs {
+		_, ok := structToIndex[struct_.Name]
+		if ok {
+			return fmt.Errorf("duplicate of %q", struct_.Name)
 		}
-		// Update slice instead of the local copy
-		fields[i].Type = type_
+		if len(struct_.Fields) == 0 {
+			return fmt.Errorf("%v: must have fields", struct_.Name)
+		}
+		err := analyzeFields(struct_.Fields, structToIndex)
+		if err != nil {
+			return fmt.Errorf("%v: %v", struct_.Name, err)
+		}
+		structToIndex[struct_.Name] = i
 	}
 	return nil
 }
 
-func analyzeType(structs map[string]int, type_ any) (any, error) {
+// Check for duplicates and analyze fields.
+func analyzeMessages(
+	messages []messageSchema,
+	messageSet map[string]bool,
+	structToIndex map[string]int,
+) error {
+	for _, message := range messages {
+		_, ok := messageSet[message.Name]
+		if ok {
+			return fmt.Errorf("duplicate of %q", message.Name)
+		}
+		err := analyzeFields(message.Fields, structToIndex)
+		if err != nil {
+			return fmt.Errorf("%v: %v", message.Name, err)
+		}
+		messageSet[message.Name] = true
+	}
+	return nil
+}
+
+// Analyze the type of each field.
+func analyzeFields(fields []fieldSchema, structToIndex map[string]int) error {
+	for i, field := range fields {
+		type_, err := analyzeType(field.type_, structToIndex)
+		if err != nil {
+			return fmt.Errorf("field %v: %v", field.Name, err)
+		}
+		// Make the change directly to the slice, otherwise it
+		// will be lost because field is a local copy.
+		fields[i].type_ = type_
+	}
+	return nil
+}
+
+// Recursively analyze the type, filling up the struct references.
+func analyzeType(type_ any, structToIndex map[string]int) (any, error) {
 	switch type_ := type_.(type) {
-	case TypeName:
-		basicType, ok := basicTypes[type_.Name]
-		if ok {
-			return basicType, nil
-		}
-		structIndex, ok := structs[type_.Name]
-		if ok {
-			return TypeStructRef{Index: structIndex}, nil
-		}
-		return nil, fmt.Errorf("type not found %q", type_.Name)
-	case TypeArray:
-		elemType, err := analyzeType(structs, type_.Elem)
+	case typeArray:
+		var err error
+		type_.Elem, err = analyzeType(type_.Elem, structToIndex)
 		if err != nil {
 			return nil, err
 		}
-		return TypeArray{Elem: elemType}, nil
+		return type_, nil
+	case typeStructRef:
+		var ok bool
+		type_.Index, ok = structToIndex[type_.Name]
+		if !ok {
+			return nil, fmt.Errorf("struct %q not found", type_.Name)
+		}
+		return type_, nil
 	default:
-		// This should not happen
-		panic(fmt.Errorf("invalid type: %T", type_))
+		// basic types are already correct
+		return type_, nil
 	}
 }

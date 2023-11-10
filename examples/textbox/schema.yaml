@@ -1,8 +1,13 @@
-messages:
-  - append:
-    - value: string
+advances:
+  - name: append
+    fields:
+      - name: value
+        type: string
 
-  - clear:
+  - name: clear
 
-  - textBox:
-    - value: string
+reports:
+  - name: currentState
+    fields:
+      - name: value
+        type: string
