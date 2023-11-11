@@ -137,16 +137,15 @@ func EncodeFromMap(kind string, m map[string]any) ([]byte, error) {
 	return append(schema.ID[:], data...), nil
 }
 
-// Log messages from a DApp contract.
+// Log message from a DApp contract.
 type Log struct {
 	Message string
 }
 
 // ID for the log message type.
-// The ABI prototype is `log(string)`.
-var LogID = ID([]byte{0x41, 0x30, 0x4f, 0xac})
+var LogID ID
 
-// Encode the log fields to into binary data.
+// Encode the log into binary data.
 func EncodeLog(Message string) []byte {
 	values := make([]any, 1)
 	values[0] = Message
@@ -158,8 +157,8 @@ func EncodeLog(Message string) []byte {
 }
 
 // Encode the log to into binary data.
-func (l Log) Encode() []byte {
-	return EncodeLog(l.Message)
+func (v Log) Encode() []byte {
+	return EncodeLog(v.Message)
 }
 
 func _log_Decode(values []any) (any, error) {
@@ -167,12 +166,49 @@ func _log_Decode(values []any) (any, error) {
 		return nil, fmt.Errorf("wrong number of values")
 	}
 	var ok bool
-	var log Log
-	log.Message, ok = values[0].(string)
+	var v Log
+	v.Message, ok = values[0].(string)
 	if !ok {
-		return nil, fmt.Errorf("failed to unpack log.Payload")
+		return nil, fmt.Errorf("failed to unpack log.message")
 	}
-	return log, nil
+	return v, nil
+}
+
+// Error message from the DApp contract.
+type Error struct {
+	Message string
+}
+
+// ID for the error message
+var ErrorID ID
+
+// Encode the error into binary data.
+func EncodeError(Message string) []byte {
+	values := make([]any, 1)
+	values[0] = Message
+	data, err := _abi.Methods["error"].Inputs.PackValues(values)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode error: %v", err))
+	}
+	return append(LogID[:], data...)
+}
+
+// Encode the error into binary data.
+func (v Error) Encode() []byte {
+	return EncodeError(v.Message)
+}
+
+func _error_Decode(values []any) (any, error) {
+	if len(values) != 1 {
+		return nil, fmt.Errorf("wrong number of values")
+	}
+	var ok bool
+	var v Error
+	v.Message, ok = values[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to unpack error.message")
+	}
+	return v, nil
 }
 
 const _JSON_ABI = `[
@@ -185,6 +221,19 @@ const _JSON_ABI = `[
       }
     ],
     "name": "log",
+    "outputs": [],
+    "stateMutability": "",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+	"internalType": "string",
+	"name": "message",
+	"type": "string"
+      }
+    ],
+    "name": "error",
     "outputs": [],
     "stateMutability": "",
     "type": "function"
@@ -202,10 +251,20 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to decode ABI: %v", err))
 	}
+
+	LogID = ID(_abi.Methods["log"].ID)
 	MustAddSchema(MessageSchema{
 		ID:        LogID,
 		Kind:      "log",
 		Arguments: _abi.Methods["log"].Inputs,
 		Decoder:   _log_Decode,
+	})
+
+	ErrorID = ID(_abi.Methods["error"].ID)
+	MustAddSchema(MessageSchema{
+		ID:        ErrorID,
+		Kind:      "error",
+		Arguments: _abi.Methods["error"].Inputs,
+		Decoder:   _error_Decode,
 	})
 }

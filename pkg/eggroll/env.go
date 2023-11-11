@@ -60,15 +60,21 @@ func (e *env) setDAppAddress(address *common.Address) {
 	e.dappAddress = address
 }
 
-// Log the message and send a report.
+// Log the message and send a report as Log.
 func (e *env) log(message string) {
 	e.logger.Print(message)
 	e.Report(eggtypes.EncodeLog(message))
 }
 
+// Log the message and send a report as Error.
+func (e *env) err(message string) {
+	e.logger.Print(message)
+	e.Report(eggtypes.EncodeError(message))
+}
+
 // Log the message, send a report, and exit.
 func (e *env) fatal(message string) {
-	e.log(message)
+	e.err(message)
 	os.Exit(1)
 }
 
@@ -86,20 +92,28 @@ func (e *env) Report(payload []byte) {
 	}
 }
 
-func (e *env) Logf(format string, a ...any) {
-	e.log(fmt.Sprintf(format, a...))
-}
-
 func (e *env) Log(a ...any) {
 	e.log(fmt.Sprint(a...))
 }
 
-func (e *env) Fatalf(format string, a ...any) {
-	e.fatal(fmt.Sprintf(format, a...))
+func (e *env) Logf(format string, a ...any) {
+	e.log(fmt.Sprintf(format, a...))
+}
+
+func (e *env) Error(a ...any) {
+	e.err(fmt.Sprint(a...))
+}
+
+func (e *env) Errorf(format string, a ...any) {
+	e.err(fmt.Sprintf(format, a...))
 }
 
 func (e *env) Fatal(a ...any) {
 	e.fatal(fmt.Sprint(a...))
+}
+
+func (e *env) Fatalf(format string, a ...any) {
+	e.fatal(fmt.Sprintf(format, a...))
 }
 
 func (e *env) EtherAddresses() []common.Address {

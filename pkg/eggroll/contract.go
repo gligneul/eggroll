@@ -29,21 +29,23 @@ type EnvReader interface {
 	// contract revers the input.
 	Report(payload []byte)
 
-	// Call fmt.Sprintf, print the log, and store the result in the rollups state.
-	// It is possible to retrieve this log in the DApp client.
-	Logf(format string, a ...any)
-
-	// Call fmt.Sprint, print the log, and store the result in the rollups state.
-	// It is possible to retrieve this log in the DApp client.
+	// Call fmt.Sprint, print the log, and send a report encoded as eggtypes.Log.
 	Log(a ...any)
 
-	// Call fmt.Sprintf, print the log, try to store the result in the rollups state, and exit.
-	// It is possible to retrieve this log in the DApp client.
-	Fatalf(format string, a ...any)
+	// Call fmt.Sprintf, print the log, and send a report encoded as eggtypes.Log.
+	Logf(format string, a ...any)
 
-	// Call fmt.Sprint, print the log, try to store the result in the rollups state, and exit.
-	// It is possible to retrieve this log in the DApp client.
+	// Call fmt.Sprint, print the log, and send a report encoded as eggtypes.Error.
+	Error(a ...any)
+
+	// Call fmt.Sprintf, print the log, and send a report encoded as eggtypes.Error.
+	Errorf(format string, a ...any)
+
+	// Call fmt.Sprint, print the log, send a report encoded as eggtypes.Error, and exit.
 	Fatal(a ...any)
+
+	// Call fmt.Sprintf, print the log, send a report encoded as eggtypes.Error, and exit.
+	Fatalf(format string, a ...any)
 
 	// Return the list of addresses that have assets.
 	EtherAddresses() []common.Address
@@ -137,7 +139,7 @@ func Roll(contract MiddlewareContract) {
 		}
 
 		if err != nil {
-			env.Logf("rejecting: %v\n", err)
+			env.Errorf("rejecting: %v\n", err)
 			status = rollups.FinishStatusReject
 			continue
 		}
