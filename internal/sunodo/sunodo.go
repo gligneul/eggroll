@@ -4,7 +4,6 @@
 package sunodo
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -123,61 +122,4 @@ func Build(target string, verbose bool) error {
 		return fmt.Errorf("exec failed: %v", err)
 	}
 	return nil
-}
-
-// Session of a sunodo run.
-type Session struct {
-	cmd *exec.Cmd
-}
-
-func (s *Session) Close() error {
-	// Sending sigint directly to sunodo doesn't work.
-	// So, we get the PID of the docker-compose child process and kill it.
-	dockerPid, err := procGetChild(s.cmd.Process.Pid)
-	if err != nil {
-		return fmt.Errorf("failed to get docker pid: %v", err)
-	}
-	dockerComposePid, err := procGetChild(dockerPid)
-	if err != nil {
-		return fmt.Errorf("failed to get docker compose pid: %v", err)
-	}
-	err = procInterrupt(dockerComposePid)
-	if err != nil {
-		return fmt.Errorf("failed to send interrupt to docker compose: %v", err)
-	}
-	err = procWait(dockerComposePid, 30)
-	if err != nil {
-		return fmt.Errorf("failed to wait for docker compose: %v", err)
-	}
-	return nil
-}
-
-// Execute the sunodo run command.
-func Run(verbose bool) (*Session, error) {
-	cmd := exec.Command("sunodo", "run")
-	if verbose {
-		cmd.Stderr = os.Stderr
-	}
-	outPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %v", err)
-	}
-
-	ready := make(chan struct{})
-	go func() {
-		scanner := bufio.NewScanner(outPipe)
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println(line)
-			if strings.Contains(line, "Press Ctrl+C to stop the node") {
-				ready <- struct{}{}
-			}
-		}
-	}()
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("exec failed: %v", err)
-	}
-	<-ready
-
-	return &Session{cmd}, nil
 }

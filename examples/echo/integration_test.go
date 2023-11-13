@@ -16,16 +16,14 @@ import (
 const testTimeout = 300 * time.Second
 
 func TestTemplate(t *testing.T) {
-	opts := eggtest.NewIntegrationTesterOpts()
-	opts.LoadFromEnv()
-	opts.Context = "../.."
-	opts.BuildTarget = "echo"
-
-	tester := eggtest.NewIntegrationTester(t, opts)
-	defer tester.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
+
+	opts := eggtest.LoadIntegrationTesterOpts()
+	opts.DockerContext = "../.."
+	opts.BuildTarget = "echo"
+	tester := eggtest.NewIntegrationTester(ctx, opts, t)
+	defer tester.Close()
 
 	client, signer, err := eggroll.NewDevClient(ctx)
 	if err != nil {
